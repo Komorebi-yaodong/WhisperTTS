@@ -49,10 +49,10 @@ utools.onPluginEnter(async({ code, type, payload }) => {
       if (!utools.hideMainWindow(true)){
         utools.showNotification('取消分离为独立窗口后可以隐藏窗口');
       }
-      text = payload
+      payload = payload.replace(/([a-zA-Z])\s*\n\s*([a-zA-Z])/g, "$1 $2").replace(/\s*\n\s*/g, "");
       let requestData = {
         model: config.TTSmodel,
-        input: text,
+        input: payload,
         voice: config.selectedVoice || "alloy"
       };
       let headers = {
