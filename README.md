@@ -27,6 +27,10 @@ tts可以使用edge-tts转openai api项目，如`https://github.com/travisvn/ope
    2. 文件选择、拖拽、复制上传
    3. TXT Format模式下，语音将根据选择的语言进行转录，语言默认为：None“时自动识别，选择语言后将提高转录准确率，下载文件将保存为TXT格式
    4. SRT Format模式下，将内容自动转录为英文（Whisper模型原生支持），language选择将不再生效，下载文件将保存为SRT格式
+3. 音频编辑区域
+   1. 音频预览
+   2. 音频剪切
+   3. 空白音频添加
 
 ## 设置
 
