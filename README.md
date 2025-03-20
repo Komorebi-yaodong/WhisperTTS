@@ -16,6 +16,7 @@ tts可以使用edge-tts转openai api项目，如`https://github.com/travisvn/ope
 ![alt text](image/5.png)
 ![alt text](image/6.png)
 
+
 ## 功能
 
 1. 文本转语音（TTS）
@@ -31,6 +32,7 @@ tts可以使用edge-tts转openai api项目，如`https://github.com/travisvn/ope
    1. 音频预览
    2. 音频剪切
    3. 空白音频添加
+
 
 ## 设置
 
