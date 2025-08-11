@@ -5,6 +5,7 @@ import SettingsModal from './SettingsModal.vue';
 import IconSettings from './icons/IconSettings.vue';
 
 const settingsStore = useSettingsStore();
+const { getRandomApiKey } = settingsStore;
 const inputText = ref('');
 const isLoading = ref(false);
 const isFetchingVoices = ref(false);
@@ -94,6 +95,11 @@ async function convertToSpeech() {
     utools.showNotification('请输入文本并选择一个声音。');
     return;
   }
+  const apiKey = getRandomApiKey('TTS');
+  if (!apiKey) {
+      utools.showNotification('请先在设置中配置有效的 TTS API 密钥。');
+      return;
+  }
   isLoading.value = true;
   audioUrl.value = '';
 
@@ -102,7 +108,7 @@ async function convertToSpeech() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settingsStore.config.TTSapiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: settingsStore.config.TTSmodel,

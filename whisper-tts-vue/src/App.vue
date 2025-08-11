@@ -1,21 +1,18 @@
 <script setup>
 import { ref, onMounted, shallowRef } from 'vue'
 import TTS from './components/TTS.vue'
-import Whisper from './components/Whisper.vue' // 在国内通常称作 STT (Speech-to-Text)
+import Whisper from './components/Whisper.vue'
 import { useSettingsStore } from './stores/settings'
 
-// 初始化 Pinia Store 并在组件挂载后加载配置
 const settingsStore = useSettingsStore()
 onMounted(() => {
   settingsStore.loadSettings()
 })
 
-// 更新 tabs 对象，移除 AudioEdit
 const tabs = {
   'TTS-文本转语音': TTS,
   'STT-语音转文本': Whisper
 }
-// 默认打开第一个 Tab
 const activeTabName = ref('TTS-文本转语音')
 const activeTab = shallowRef(TTS) 
 
@@ -37,7 +34,6 @@ function switchTab(tabName, tabComponent) {
       </button>
     </header>
     <main class="content">
-      <!-- 动态组件渲染，并带有过渡效果 -->
       <Transition name="fade" mode="out-in">
         <component :is="activeTab" />
       </Transition>
@@ -46,7 +42,6 @@ function switchTab(tabName, tabComponent) {
 </template>
 
 <style>
-/* 全局样式和CSS变量 (与上一版相同，此处省略以保持简洁) */
 :root {
   --primary-bg: #ffffff;
   --secondary-bg: #f7f7f8;
@@ -112,7 +107,7 @@ body {
 
 .content {
   flex-grow: 1;
-  padding: 24px;
+  padding: 16px 24px; /* Reduced top/bottom padding */
   overflow-y: auto;
   background-color: var(--secondary-bg);
 }
@@ -124,7 +119,6 @@ body {
   opacity: 0;
 }
 
-/* 通用组件样式 */
 .component-container {
   background: var(--container-bg);
   padding: 24px;

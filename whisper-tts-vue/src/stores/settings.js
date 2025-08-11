@@ -1,9 +1,9 @@
-import { reactive } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
 export const useSettingsStore = defineStore('settings', () => {
-  // 使用 reactive 来管理整个配置对象，确保深层对象的响应性
-  const config = reactive({
+  // --- General Config ---
+  const config = ref({
     TTSapiUrl: "https://api.openai.com",
     TTSapiKey: "",
     voiceList: JSON.stringify([{ "alloy": "Alloy" }, { "echo": "Echo" }, { "fable": "Fable" }, { "onyx": "Onyx" }, { "nova": "Nova" }, { "shimmer": "Shimmer" }]),
@@ -14,22 +14,79 @@ export const useSettingsStore = defineStore('settings', () => {
     WhisperapiModel: "whisper-large-v3"
   })
 
-  // 从 utools.db 加载配置
+  // --- **NEW**: STT File State ---
+  // This state will persist across tab switches
+  const sttSelectedFile = ref(null);
+  const sttFilePreviewUrl = ref('');
+  const sttFileDisplayName = ref('');
+
+  // --- STT Transcription State ---
+  const transcriptionChunkResults = ref([])
+
+  // --- Actions ---
   async function loadSettings() {
-    // 调用 preload.js 中的函数
     const savedConfig = await window.api.getConfig()
-    // 合并加载的配置到响应式对象中
-    Object.assign(config, savedConfig)
+    Object.assign(config.value, savedConfig)
   }
 
-  // 保存配置到 utools.db
   async function saveSettings(newConfig) {
-    // 更新 Pinia store 的状态
-    Object.assign(config, newConfig)
-    // 通过 preload.js 更新 utools.db
+    Object.assign(config.value, newConfig)
     await window.api.updateConfig(newConfig)
-    utools.showNotification('设置已保存！') // 中文化
+    utools.showNotification('设置已保存！')
+  }
+  
+  const getRandomApiKey = (type) => {
+    const keysString = type === 'TTS' ? config.value.TTSapiKey : config.value.WhisperapiKey;
+    if (!keysString || typeof keysString !== 'string') return '';
+    const keys = keysString.split(/[,，]/).map(k => k.trim()).filter(Boolean);
+    if (keys.length === 0) return '';
+    const randomIndex = Math.floor(Math.random() * keys.length);
+    return keys[randomIndex];
+  };
+
+  function resetTranscriptionState() {
+    transcriptionChunkResults.value = []
   }
 
-  return { config, loadSettings, saveSettings }
+  // **NEW**: Actions to manage STT file state
+  function setSttFile(file) {
+    // Revoke old URL to prevent memory leaks
+    if (sttFilePreviewUrl.value) {
+        URL.revokeObjectURL(sttFilePreviewUrl.value);
+    }
+    sttSelectedFile.value = file;
+    sttFilePreviewUrl.value = URL.createObjectURL(file);
+    sttFileDisplayName.value = file.name;
+  }
+  
+  function clearSttFile() {
+    if (sttFilePreviewUrl.value) {
+        URL.revokeObjectURL(sttFilePreviewUrl.value);
+    }
+    sttSelectedFile.value = null;
+    sttFilePreviewUrl.value = '';
+    sttFileDisplayName.value = '';
+  }
+
+  // --- Computed ---
+  const isProcessing = computed(() => 
+    transcriptionChunkResults.value.some(c => c.status === 'pending' || c.status === 'processing')
+  )
+
+  return { 
+    config, 
+    loadSettings, 
+    saveSettings,
+    getRandomApiKey,
+    
+    sttSelectedFile,
+    sttFilePreviewUrl,
+    sttFileDisplayName,
+    setSttFile,
+    clearSttFile,
+    
+    transcriptionChunkResults,
+    isProcessing,
+    resetTranscriptionState
+  }
 })
