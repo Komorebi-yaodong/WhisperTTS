@@ -1,28 +1,39 @@
 {
-	"main": "/mainindex.html",
+	"main": "main/index.html",
 	"preload": "preload.js",
 	"logo": "favicon.png",
-	"platform":["win32","darwin","linux"],
+	"platform": [
+		"win32",
+		"darwin",
+		"linux"
+	],
+	"pluginSetting": {
+		"single": true
+	},
 	"features": [
 		{
 			"code": "WhisperTTS",
 			"explain": "tts、whisper，文本转语音、语音转文本",
-			"cmds":["tts", "whisper"]
+			"cmds": [
+				"tts",
+				"whisper"
+			]
 		},
 		{
 			"code": "SpeechTTS",
 			"explain": "划词朗读",
 			"mainHide": true,
-			"cmds":[
+			"cmds": [
 				{
 					"type": "over",
 					"label": "SpeechTTS",
-					"minLength":1
+					"minLength": 1,
+          			"maxLength": 200000000
 				}
 			]
 		}
 	],
-	"development":{
+	"development": {
 		"main": "http://localhost:5173/index.html"
 	}
 }
