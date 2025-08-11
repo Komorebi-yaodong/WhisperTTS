@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech-to-Text</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f8f4;
+            color: #323330;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100%;
+            overflow: scroll;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            background-color: #F0EFE6;
+            overflow: visible;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            font-family: Georgia, serif;
+            position: relative;
+        }
+
+        h2 {
+            font-family: Georgia, serif;
+            font-weight: normal;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #66645e;
+            font-size: 2rem;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            background-color: #807d77;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s ease-in-out;
+            font-family: Georgia, serif;
+        }
+
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .file-upload.dragging {
+            background-color: #f0f0f0;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #result {
+            background-color: #ffffff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 18px;
+        }
+
+        .language-selector {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .language-selector select {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-size: 16px;
+        }
+
+        .file-controls {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-controls button {
+            background-color: #e74c3c;
+            padding: 5px 10px;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .loader {
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+        }
+
+        .loader div {
+            border: 4px solid transparent;
+            border-top: 4px solid #807d77;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        #settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #807d77;
+            line-height: 1;
+        }
+
+        #settings-icon::before {
+            content: '\2699';
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .save-button {
+            background-color: #3e8e41;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .save-button:hover {
+            background-color: #2a6d2d;
+        }
+
+        .format-selection {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .format-selection input {
+            margin-right: 10px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .modal-content input[type="text"] {
+            width: 95%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .modal-content button {
+            margin-top: 10px;
+        }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        /* Toast Message */
+        .toast-message {
+            background-color: #d9534f;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .toast-message.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 使用 Unicode 字符 -->
+        <div id="settings-icon"></div>
+        <h2>Speech-to-Text</h2>
+        <div class="main">
+            <div class="file-upload" id="file-upload">
+                <p>Drag and drop a file or click to upload</p>
+                <input type="file" id="file-input" accept="audio/*">
+            </div>
+            <audio id="audio-player" controls style="display: none;"></audio>
+            <div class="file-controls" id="file-controls" style="display: none;">
+                <button id="delete-file">Delete File</button>
+            </div>
+            <div class="language-selector">
+                <select id="language-select">
+                    <option value="">None</option>
+                    <option value="zh">Chinese (中文)</option>
+                    <option value="en">English (英文)</option>
+                    <option value="ja">Japanese (日本語)</option>
+                    <option value="fr">French (Français)</option>
+                    <option value="de">German (Deutsch)</option>
+                    <option value="ru">Russian (Русский)</option>
+                </select>
+            </div>
+            <div class="format-selection">
+                <label><input type="radio" name="format" value="srt"> SRT Format</label>
+                <label><input type="radio" name="format" value="txt" checked> TXT Format</label>
+            </div>
+            <div class="button-row">
+                <button id="transcribe-button">Transcribe</button>
+                <button id="translate-button">Translate</button>
+            </div>
+            <div id="result"></div>
+            <div class="loader" id="loader">
+                <div></div>
+                <p>Processing...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <label for="api-url">API URL:</label>
+            <input type="text" id="api-url" placeholder="Enter API URL">
+            <label for="api-key">API Key:</label>
+            <input type="text" id="api-key" placeholder="Enter API Key">
+            <label for="model-name">Model:</label>
+            <input type="text" id="model-name" placeholder="Enter Model Name">
+            <button id="save-settings">Save Settings</button>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const fileInput = document.getElementById('file-input');
+            const fileUpload = document.getElementById('file-upload');
+            const transcribeButton = document.getElementById('transcribe-button');
+            const translateButton = document.getElementById('translate-button');
+            const languageSelect = document.getElementById('language-select');
+            const result = document.getElementById('result');
+            const settingsIcon = document.getElementById('settings-icon');
+            const modal = document.getElementById('settingsModal');
+            const closeButton = document.querySelector('.close');
+            const apiUrlInput = document.getElementById('api-url');
+            const apiKeyInput = document.getElementById('api-key');
+            const modelNameInput = document.getElementById('model-name');
+            const saveSettingsButton = document.getElementById('save-settings');
+            const audioPlayer = document.getElementById('audio-player');
+            const fileControls = document.getElementById('file-controls');
+            const deleteFileButton = document.getElementById('delete-file');
+            const loader = document.getElementById('loader');
+
+            let selectedFile = null;
+
+            // Load saved API URL, API Key, and Model from localStorage
+            const savedApiUrl = localStorage.getItem('WhisperapiUrl') || "https://api.groq.com/openai";
+            const savedApiKey = localStorage.getItem('WhisperapiKey') || "gsk_xxx";
+            const savedModelName = localStorage.getItem('WhisperapiModel') || "whisper-large-v3";
+
+            if (savedApiUrl) apiUrlInput.value = savedApiUrl;
+            if (savedApiKey) apiKeyInput.value = savedApiKey;
+            if (savedModelName) modelNameInput.value = savedModelName;
+
+            let WhisperapiUrl = apiUrlInput.value;
+            let WhisperapiKey = apiKeyInput.value;
+            let WhisperapiModel = modelNameInput.value;
+
+            // Drag-and-drop functionality
+            fileUpload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUpload.classList.add('dragging');
+            });
+
+            fileUpload.addEventListener('dragleave', () => {
+                fileUpload.classList.remove('dragging');
+            });
+
+            fileUpload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove('dragging');
+                const file = e.dataTransfer.files[0];
+                handleFileSelection(file);
+            });
+
+            fileUpload.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                handleFileSelection(file);
+            });
+
+            const handleFileSelection = (file) => {
+                selectedFile = file;
+                if (selectedFile) {
+                    fileUpload.innerHTML = `<p>Selected File: ${selectedFile.name}</p>`;
+                    audioPlayer.src = URL.createObjectURL(selectedFile);
+                    audioPlayer.style.display = 'block';
+                    fileControls.style.display = 'flex';
+                }
+            };
+
+            deleteFileButton.addEventListener('click', () => {
+                selectedFile = null;
+                fileUpload.innerHTML = `<p>Drag and drop a file or click to upload</p>`;
+                audioPlayer.style.display = 'none';
+                fileControls.style.display = 'none';
+            });
+
+            // Function to show toast message
+            function showToast(message) {
+                const toastContainer = document.getElementById('toast-container');
+                const toastMessage = document.createElement('div');
+                toastMessage.classList.add('toast-message');
+                toastMessage.textContent = message;
+                toastContainer.appendChild(toastMessage);
+
+                // Show the toast
+                setTimeout(() => {
+                    toastMessage.classList.add('show');
+                }, 100);
+
+                // Hide and remove the toast after 3 seconds
+                setTimeout(() => {
+                    toastMessage.classList.remove('show');
+                    setTimeout(() => {
+                        toastContainer.removeChild(toastMessage);
+                    }, 500);
+                }, 3000);
+            }
+
+            const handleApiCall = (endpoint, params = {}) => {
+                if (!selectedFile) {
+                    showToast("Please upload a file first.");
+                    return;
+                }
+                const selectedFormat = document.querySelector('input[name="format"]:checked')?.value;
+
+                const formData = new FormData();
+                formData.append("file", selectedFile);
+                formData.append("model", WhisperapiModel);
+                formData.append("response_format", "verbose_json"); // 设置响应格式为 verbose_json
+
+                if (params.language && endpoint === '/transcribe') formData.append("language", params.language);
+
+                // Show loader while processing
+                loader.style.display = 'block';
+                result.textContent = '';
+
+                fetch(`${WhisperapiUrl}${endpoint}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": WhisperapiKey ? `Bearer ${WhisperapiKey}` : undefined
+                    },
+                    body: formData
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        loader.style.display = 'none'; // Hide loader
+                        if (data.segments) {
+                            let formattedText;
+                            if (selectedFormat === 'srt') {
+                                formattedText = convertToSRT(data.segments);
+                            } else {
+                                formattedText = data.text;
+                            }
+                            result.textContent = formattedText;
+                            createDownloadButton(formattedText, selectedFormat);
+                        } else {
+                            result.textContent = `Error: No segments found in response.`;
+                        }
+                    })
+                    .catch(error => {
+                        loader.style.display = 'none'; // Hide loader
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}. Please check your API settings and network.`);
+                    });
+            };
+
+            // 将 verbose_json 格式转换为 SRT 格式
+            function convertToSRT(segments) {
+                let srtContent = '';
+                segments.forEach((segment, index) => {
+                    const startTime = formatTime(segment.start);
+                    const endTime = formatTime(segment.end);
+                    srtContent += `${index + 1}\n${startTime} --> ${endTime}\n${segment.text.trim()}\n\n`;
+                });
+                return srtContent;
+            }
+
+            // 格式化时间
+            function formatTime(seconds) {
+                const date = new Date(null);
+                date.setSeconds(seconds);
+                const hours = date.getUTCHours().toString().padStart(2, '0');
+                const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                const secs = date.getUTCSeconds().toString().padStart(2, '0');
+                const millis = Math.round((seconds - Math.floor(seconds)) * 1000).toString().padStart(3, '0');
+                return `${hours}:${minutes}:${secs},${millis}`;
+            }
+
+            const createDownloadButton = (text, fileType) => {
+                // Create a Blob from the text content
+                const blob = new Blob([text], { type: 'text/plain' });
+
+                // Create a new button element
+                const button = document.createElement('button');
+                button.textContent = `Download ${fileType.toUpperCase()}`;
+                button.classList.add('download-button');
+
+                // Set the button style
+                button.style.backgroundColor = '#3e8e41';
+                button.style.color = 'white';
+                button.style.padding = '12px 20px';
+                button.style.borderRadius = '10px';
+                button.style.cursor = 'pointer';
+                button.style.marginTop = '20px';
+                button.style.border = 'none';
+                button.style.fontSize = '16px';
+                button.style.width = '100%';
+
+                // Add event listener to handle the download when the button is clicked
+                button.addEventListener('click', () => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `transcription.${fileType}`;
+                    link.click();
+                });
+
+                // Append the button to the result section
+                result.appendChild(button);
+            };
+
+            transcribeButton.addEventListener('click', () => {
+                handleApiCall('/v1/audio/transcriptions');
+            });
+
+            translateButton.addEventListener('click', () => {
+                const language = languageSelect.value;
+                handleApiCall('/v1/audio/translations', { language });
+            });
+
+            // Settings Modal Event Listeners
+            settingsIcon.onclick = function () {
+                modal.style.display = "block";
+            }
+
+            closeButton.onclick = function () {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            saveSettingsButton.addEventListener('click', () => {
+                WhisperapiUrl = apiUrlInput.value;
+                WhisperapiKey = apiKeyInput.value;
+                WhisperapiModel = modelNameInput.value;
+
+                // Save to localStorage
+                localStorage.setItem('WhisperapiUrl', WhisperapiUrl);
+                localStorage.setItem('WhisperapiKey', WhisperapiKey);
+                localStorage.setItem('WhisperapiModel', WhisperapiModel);
+
+                modal.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+
+</html>

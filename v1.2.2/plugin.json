@@ -1,0 +1,28 @@
+{
+	"main": "/mainindex.html",
+	"preload": "preload.js",
+	"logo": "favicon.png",
+	"platform":["win32","darwin","linux"],
+	"features": [
+		{
+			"code": "WhisperTTS",
+			"explain": "tts、whisper，文本转语音、语音转文本",
+			"cmds":["tts", "whisper"]
+		},
+		{
+			"code": "SpeechTTS",
+			"explain": "划词朗读",
+			"mainHide": true,
+			"cmds":[
+				{
+					"type": "over",
+					"label": "SpeechTTS",
+					"minLength":1
+				}
+			]
+		}
+	],
+	"development":{
+		"main": "http://localhost:5173/index.html"
+	}
+}

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS & Whisper</title>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif; /* 使用 Arial 替代 Helvetica Neue */
+            background-color: #f8f8f4;
+            color: #323330;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            margin: 0;
+            padding: 0;
+            overflow-y: hidden;
+            overflow-x: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            width: 100%; /* 宽度 100% */
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #eee;
+            border: 1px solid #ccc;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            font-family: Georgia, serif; /* 使用 Georgia 替代 Copernicus */
+            font-size: 1.2rem;
+        }
+
+        .tab:hover {
+            background-color: #ddd;
+        }
+
+        .tab.active {
+            background-color: #F0EFE6;
+            border-bottom: 2px solid #F0EFE6;
+        }
+
+        .content {
+            width: 100%; /* 宽度 100% */
+            padding: 0;
+        }
+
+        #tts-content,
+        #whisper-content {
+            display: none;
+        }
+
+        #tts-content.active,
+        #whisper-content.active {
+            display: block;
+        }
+
+        #tts-content iframe,
+        #whisper-content iframe {
+            width: 100%; /* 宽度 100% */
+            border: none;
+            border-radius: 10px;
+            overflow-x: hidden;
+            overflow-y: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <div class="tab active" data-target="tts-content">TTS</div>
+        <div class="tab" data-target="whisper-content">Whisper</div>
+    </div>
+
+    <div class="content">
+        <div class="active" id="tts-content">
+            <iframe id="tts-iframe" src="TTS.html"></iframe>
+        </div>
+        <div id="whisper-content">
+            <iframe id="whisper-iframe" src="Whisper.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.content > div');
+            const whisperIframe = document.getElementById('whisper-iframe');
+            const ttsIframe = document.getElementById('tts-iframe');
+
+            function adjustIframeHeight(iframe) {
+                const tabsHeight = document.querySelector('.tabs').offsetHeight;
+                const availableHeight = window.innerHeight - tabsHeight;
+                iframe.style.height = `${availableHeight - 20}px`; // 减去一些边距
+            }
+
+            function initIframe(iframe) {
+                iframe.onload = () => {
+                    try {
+                        const iframeBody = iframe.contentWindow.document.body;
+                        iframeBody.style.overflowY = 'auto';
+                        iframeBody.style.margin = '0';
+                        iframeBody.style.padding = '0';
+                        iframeBody.style.height = 'auto';
+                        iframeBody.style.width = '100%';
+
+                        // 使用 MutationObserver 监听 iframe 内容的变化
+                        const observer = new MutationObserver(() => {
+                            iframeBody.style.overflowY = 'auto';
+                            iframeBody.style.margin = '0';
+                            iframeBody.style.padding = '0';
+                            iframeBody.style.height = 'auto';
+                            iframeBody.style.width = '100%';
+                        });
+
+                        observer.observe(iframeBody, { attributes: true, childList: true, subtree: true });
+
+                    } catch (error) {
+                        console.error("Error accessing iframe content:", error);
+                    }
+                    adjustIframeHeight(iframe);
+                }
+                adjustIframeHeight(iframe)
+            }
+
+            initIframe(whisperIframe);
+            initIframe(ttsIframe);
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.dataset.target;
+
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(target).classList.add('active');
+
+                    if (target === 'tts-content') {
+                        adjustIframeHeight(ttsIframe);
+                    } else {
+                        adjustIframeHeight(whisperIframe);
+                    }
+                });
+            });
+
+            window.addEventListener('resize', () => {
+                adjustIframeHeight(whisperIframe);
+                adjustIframeHeight(ttsIframe);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR & Translation</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f8f4;
+            color: #323330;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100%;
+            overflow: scroll;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            background-color: #F0EFE6;
+            overflow: visible;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            font-family: Georgia, serif;
+            position: relative;
+        }
+
+        h2 {
+            font-family: Georgia, serif;
+            font-weight: normal;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #66645e;
+            font-size: 2rem;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            background-color: #807d77;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s ease-in-out;
+            font-family: Georgia, serif;
+        }
+
+        #tts-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #audio-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 20px;
+            display: none;
+        }
+
+        #download-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #807d77;
+
+        }
+
+        #download-button:hover {
+            color: #4a4844;
+        }
+
+        #input-text {
+            height: 150px;
+            overflow-y: auto;
+            resize: none;
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+            scrollbar-gutter: stable both-edges;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+        }
+
+        #input-text::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #input-text::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #input-text::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #input-text::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        #voice-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23807d77'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 1em;
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #807d77;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            align-self: center;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Settings Icon */
+        #settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #807d77;
+            content: '\2699';
+            line-height: 1;
+        }
+
+        #settings-icon::before {
+            content: '\2699';
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .modal-content input[type="text"],
+        .modal-content textarea {
+            width: 95%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .modal-content button {
+            margin-top: 10px;
+        }
+
+        #voice-list-container {
+            /* max-height: 200px; */
+            overflow-y: auto;
+        }
+
+        #voice-list {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+
+        #voice-list::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #voice-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #voice-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #voice-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        /* Toast Message */
+        .toast-message {
+            background-color: #d9534f;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .toast-message.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Using inline gear icon -->
+        <div id="settings-icon"></div>
+        <h2>Text-to-Speech</h2>
+        <div class="main">
+            <form id="tts-form">
+                <textarea id="input-text" placeholder="输入文字"></textarea>
+                <select id="voice-select"></select>
+                <button type="submit">转换</button>
+                <div class="loader" id="loader"></div>
+            </form>
+            <div id="audio-container">
+                <audio id="audio-player" controls></audio>
+                <button id="download-button" title="Download Audio">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <label for="api-url">API URL:</label>
+            <input type="text" id="api-url" placeholder="Enter API URL">
+            <label for="api-key">API Key:</label>
+            <input type="text" id="api-key" placeholder="Enter API Key (Bearer Token)">
+            <label for="model-input">Model:</label>
+            <input type="text" id="model-input" placeholder="Enter Model (e.g., tts-1)">
+            <label for="voice-list">Voice List:</label>
+            <div id="voice-list-container">
+                <textarea id="voice-list" placeholder="Enter voice list (JSON format:[{name:description},...])"></textarea>
+            </div>
+            <button id="save-settings">Save Settings</button>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const loader = document.getElementById('loader');
+            const voiceSelect = document.getElementById('voice-select');
+            const settingsIcon = document.getElementById('settings-icon');
+            const modal = document.getElementById('settingsModal');
+            const closeButton = document.querySelector('.close');
+            const TTSapiUrlInput = document.getElementById('api-url');
+            const TTSapiKeyInput = document.getElementById('api-key');
+            const voiceListInput = document.getElementById('voice-list');
+            const saveSettingsButton = document.getElementById('save-settings');
+            const modelInput = document.getElementById('model-input');
+            const downloadButton = document.getElementById('download-button');
+
+            // Load saved settings
+            loadSettings();
+
+            // Function to populate voice select
+            function populateVoiceSelect(data) {
+                voiceSelect.innerHTML = ''; // Clear existing options
+                let savedVoices = [];
+                if (data) {
+                    let defaultOption = document.createElement('option');
+                    defaultOption.value = "zh-CN-XiaochenMultilingualNeural";
+                    defaultOption.textContent = `默认角色`;
+                    voiceSelect.appendChild(defaultOption);
+                    savedVoices.push({ "zh-CN-XiaochenMultilingualNeural": defaultOption.textContent });
+                }
+
+                data.forEach(voice => {
+                    gender_map = {
+                        "Female": "🔴",
+                        "Male": "🔵",
+                        "Neuter": "🟢"
+                    }
+                    if (voice.ShortName.includes('Multilingual') || voice.ShortName.includes('zh-')) {
+                        if (voice.ShortName.includes('zh-') || voice.ShortName.includes('en-') || voice.ShortName.includes('ja-')) {
+                            let option = document.createElement('option');
+                            option.value = voice.ShortName;
+                            option.textContent = `${voice.LocalName} | ${voice.Locale} | ${gender_map[voice.Gender]}`;
+                            voiceSelect.appendChild(option);
+                            savedVoices.push({ [voice.ShortName]: option.textContent });
+                        }
+                    }
+                });
+                return savedVoices;
+            }
+
+            function populateVoiceSelect_local(data) {
+                voiceSelect.innerHTML = ''; // Clear existing options
+
+                data.forEach(voice => {
+                    for (const [key, value] of Object.entries(voice)) {
+                        let option = document.createElement('option');
+                        option.value = key;           // 使用键作为 option 的 value
+                        option.textContent = value;     // 使用值作为 option 的文本内容
+                        voiceSelect.appendChild(option);
+                    }
+                });
+            }
+
+            // Function to fetch voices from API and save to local storage
+            function fetchAndSaveVoices(apiUrl, apiKey) {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                // Add Authorization header if apiKey is provided
+                if (apiKey) {
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                }
+                fetch(`${apiUrl}/voices`, {
+                    method: 'GET',
+                    headers: headers
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        const savedVoices = populateVoiceSelect(data);
+                        // Save fetched voices to local storage
+                        localStorage.setItem('voiceList', JSON.stringify(savedVoices));
+                        voiceListInput.value = JSON.stringify(savedVoices, null, 2);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching or saving voices:', error);
+                        showToast('Error fetching voices. Please check your API URL and API Key.');
+                    });
+            }
+
+            // Function to fetch voices from API or use saved voices
+            function fetchVoices() {
+                const apiUrl = TTSapiUrlInput.value;
+                const apiKey = TTSapiKeyInput.value;
+                const savedVoices = voiceListInput.value;
+
+                if (savedVoices) {
+                    try {
+                        const voices = JSON.parse(savedVoices);
+                        populateVoiceSelect_local(voices);
+                    } catch (error) {
+                        console.error('Error parsing saved voices:', error);
+                        // If parsing fails, fetch from API
+                        fetchAndSaveVoices(apiUrl, apiKey);
+                    }
+                } else {
+                    fetchAndSaveVoices(apiUrl, apiKey);
+                }
+            }
+
+            // Fetch voices on load
+            fetchVoices();
+
+            // Settings Modal Event Listeners
+            settingsIcon.onclick = function () {
+                modal.style.display = "block";
+            }
+
+            closeButton.onclick = function () {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            saveSettingsButton.onclick = function () {
+                localStorage.setItem('apiUrl', TTSapiUrlInput.value);
+                localStorage.setItem('apiKey', TTSapiKeyInput.value);
+                localStorage.setItem('model', modelInput.value);
+                // Only save if user has manually entered something, otherwise keep the fetched list
+                if (voiceListInput.value !== localStorage.getItem('voiceList')) {
+                    localStorage.setItem('voiceList', voiceListInput.value);
+                }
+                modal.style.display = "none";
+                fetchVoices(); // Refresh voices after saving
+            }
+
+            // Function to load saved settings
+            function loadSettings() {
+                const savedApiUrl = localStorage.getItem('apiUrl');
+                const savedApiKey = localStorage.getItem('apiKey');
+                const savedVoiceList = localStorage.getItem('voiceList');
+                const savedModel = localStorage.getItem('model');
+
+                TTSapiUrlInput.value = savedApiUrl || 'https://api.openai.com';
+                TTSapiKeyInput.value = savedApiKey || 'sk-xxx';
+                voiceListInput.value = savedVoiceList || `[{"alloy":"Alloy"},{"echo":"Echo"},{"fable":"Fable"},{"onyx":"Onyx"},{"nova":"Nova"},{"shimmer":"Shimmer"}]`;
+                modelInput.value = savedModel || 'tts-1';
+            }
+
+            // Function to show toast message
+            function showToast(message) {
+                const toastContainer = document.getElementById('toast-container');
+                const toastMessage = document.createElement('div');
+                toastMessage.classList.add('toast-message');
+                toastMessage.textContent = message;
+                toastContainer.appendChild(toastMessage);
+
+                // Show the toast
+                setTimeout(() => {
+                    toastMessage.classList.add('show');
+                }, 100);
+
+                // Hide and remove the toast after 3 seconds
+                setTimeout(() => {
+                    toastMessage.classList.remove('show');
+                    setTimeout(() => {
+                        toastContainer.removeChild(toastMessage);
+                    }, 500);
+                }, 3000);
+            }
+
+            // TTS Form Submission
+            document.getElementById('tts-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                loader.style.display = 'block';
+
+                let inputText = document.getElementById('input-text').value;
+                let selectedVoice = voiceSelect.value;
+                const apiUrl = TTSapiUrlInput.value;
+                const apiKey = TTSapiKeyInput.value;
+                const model = modelInput.value;
+
+                let requestData = {
+                    model: model,
+                    input: inputText,
+                    voice: selectedVoice || "alloy"
+                };
+
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                // Add Authorization header if apiKey is provided
+                if (apiKey) {
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                }
+
+                fetch(`${apiUrl}/v1/audio/speech`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestData)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        loader.style.display = 'none';
+                        let url = window.URL.createObjectURL(blob);
+                        let audioPlayer = document.getElementById('audio-player');
+
+                        audioPlayer.src = url;
+                        downloadButton.onclick = () => {
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'tts.wav';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        };
+
+                        document.getElementById('audio-container').style.display = 'flex';
+                    })
+                    .catch(error => {
+                        loader.style.display = 'none';
+                        console.error('Error:', error);
+                        showToast('Failed to convert text to speech. Please check your API settings, key, and voice list.');
+                    });
+            });
+
+            downloadButton.innerHTML = '&#x2913;';
+        });
+    </script>
+</body>
+
+</html>

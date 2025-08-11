@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS & Whisper & AudioEdit</title>
+    <style>
+        /* Common Styles */
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f8f4;
+            color: #323330;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            margin: 0;
+            padding: 0;
+            overflow-y: hidden;
+            overflow-x: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            width: 100%;
+            margin-bottom: 20px;
+            justify-content: center;
+            /* 水平居中 */
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #eee;
+            border: 1px solid #ccc;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            font-family: Georgia, serif;
+            font-size: 1.2rem;
+        }
+
+        .tab:hover {
+            background-color: #ddd;
+        }
+
+        .tab.active {
+            background-color: #F0EFE6;
+            border-bottom: 2px solid #F0EFE6;
+        }
+
+        .content {
+            width: 80%;
+            /* 调整宽度 */
+            max-width: 800px;
+            /* 限制最大宽度 */
+            margin: 0 auto;
+            /* 水平居中 */
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .content-container {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        #tts-content,
+        #whisper-content,
+        #audioedit-content {
+            display: none;
+            height: calc(100% - 75px);
+        }
+
+        #tts-content.active,
+        #whisper-content.active,
+        #audioedit-content.active {
+            display: block;
+        }
+
+        .container {
+            background-color: #F0EFE6;
+            overflow: visible;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            /* 调整宽度 */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            font-family: Georgia, serif;
+            position: relative;
+        }
+
+        h2 {
+            font-family: Georgia, serif;
+            font-weight: normal;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #66645e;
+            font-size: 2rem;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        button {
+            background-color: #807d77;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s ease-in-out;
+            font-family: Georgia, serif;
+        }
+
+        button:hover {
+            background-color: #66645e;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* TTS Styles */
+        #tts-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #audio-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 20px;
+            display: none;
+        }
+
+        #download-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #807d77;
+        }
+
+        #download-button:hover {
+            color: #4a4844;
+        }
+
+        #input-text {
+            height: 150px;
+            overflow-y: auto;
+            resize: none;
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+            scrollbar-gutter: stable both-edges;
+            font-family: Georgia, SimSun, serif;
+            font-size: 16px;
+        }
+
+        #input-text::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #input-text::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #input-text::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #input-text::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        #voice-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23807d77'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 1em;
+        }
+
+        .loader-container {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #807d77;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        .loader-text {
+            margin-left: 10px;
+            font-size: 16px;
+            color: #807d77;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #voice-list-container {
+            overflow-y: auto;
+        }
+
+        #voice-list {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+
+        #voice-list::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #voice-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #voice-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #voice-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Whisper Styles */
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .file-upload.dragging {
+            background-color: #f0f0f0;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #result {
+            background-color: #ffffff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 18px;
+        }
+
+        .language-selector {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .language-selector select {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-size: 16px;
+        }
+
+        .file-controls {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-controls button {
+            background-color: #e74c3c;
+            padding: 5px 10px;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .save-button {
+            background-color: #3e8e41;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .save-button:hover {
+            background-color: #2a6d2d;
+        }
+
+        .format-selection {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .format-selection input {
+            margin-right: 10px;
+        }
+
+        /* Settings Icon */
+        .settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #807d77;
+            content: '\2699';
+            line-height: 1;
+        }
+
+        .settings-icon::before {
+            content: '\2699';
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .modal-content input[type="text"],
+        .modal-content textarea {
+            width: 95%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .modal-content button {
+            margin-top: 10px;
+        }
+
+        #tts-voice-list {
+            /* 设置 resize 属性为 vertical */
+            resize: vertical;
+            width: calc(100% - 20px);
+            /* 保持左右固定宽度，减去 padding */
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: monospace;
+            box-sizing: border-box;
+            min-height: 100px;
+            /* 设置一个最小高度 */
+            max-height: 300px;
+            /* 设置一个最大高度，根据需要调整 */
+        }
+
+        #tts-voice-list-container {
+            overflow-y: auto;
+            width: 100%;
+            /* 容器宽度为 100% */
+        }
+
+        /* 可以添加滚动条样式，如果内容超出最大高度 */
+        #tts-voice-list::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #tts-voice-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #tts-voice-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #tts-voice-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        /* Toast Message */
+        .toast-message {
+            background-color: #d9534f;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .toast-message.show {
+            opacity: 1;
+        }
+
+        /* AudioEdit Styles */
+        #audio-editor-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #audio-upload-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        #audio-upload-area.dragging {
+            background-color: #f0f0f0;
+        }
+
+        #audio-upload-area p {
+            margin: 0;
+            padding: 10px;
+        }
+
+        #audio-upload-input {
+            display: none;
+        }
+
+        #waveform-container {
+            position: relative;
+            width: 100%;
+            height: 150px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            display: none;
+        }
+
+        #waveform {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            position: relative;
+        }
+
+        #playhead {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 100%;
+            background-color: #e74c3c;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .selection-area {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background-color: rgba(66, 133, 244, 0.3);
+            z-index: 5;
+            /* 允许鼠标事件穿透 */
+            pointer-events: none;
+        }
+
+        #audio-controls {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #player-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #player-controls button {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        #edit-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        #edit-controls button {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .edit-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #silence-duration {
+            width: 60px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #audio-info {
+            display: none;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+
+        #zoom-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        #position-display {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin: 5px 0;
+        }
+
+        /* AudioEdit Info Icon */
+        .info-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #807d77;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .info-icon::before {
+            content: 'i';
+        }
+
+        /*  删除 .info-icon .tooltiptext 和 .info-icon:hover .tooltiptext 样式  */
+
+        /* Modal Styles (如果之前没有定义过 .modal, .modal-content, .close，则添加) */
+        /* 这部分样式你之前已经有了，这里确保一下是完整的 */
+        .modal {
+            display: none;
+            /* 默认隐藏 */
+            position: fixed;
+            z-index: 100;
+            /* 在最上层 */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            /* 半透明背景 */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            /* 居中 */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            /* 宽度 */
+            max-width: 600px;
+            /* 最大宽度 */
+            border-radius: 10px;
+            /* 圆角 */
+            text-align: left;
+            /* 文本左对齐 */
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+
+        .modal-content h3 {
+            /* 标题样式 */
+            margin-top: 0;
+            color: #333;
+        }
+
+        .modal-content p {
+            /* 段落样式 */
+            line-height: 1.6;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tabs">
+        <div class="tab active" data-target="tts-content">TTS</div>
+        <div class="tab" data-target="whisper-content">Whisper</div>
+        <div class="tab" data-target="audioedit-content">AudioEdit</div>
+    </div>
+
+    <div class="content">
+        <div class="content-container active" id="tts-content">
+            <div class="container">
+                <!-- Using inline gear icon -->
+                <div class="settings-icon" id="tts-settings-icon"></div>
+                <h2>Text-to-Speech</h2>
+                <div class="main">
+                    <form id="tts-form">
+                        <textarea id="input-text" placeholder="Enter text here..."></textarea>
+                        <select id="voice-select"></select>
+                        <button type="submit">Submit</button>
+                    </form>
+                    <div class="loader-container" id="tts-loader-container">
+                        <div class="loader" id="tts-loader"></div>
+                        <div class="loader-text">Processing...</div>
+                    </div>
+                    <div id="audio-container">
+                        <audio id="audio-player" controls></audio>
+                        <button id="download-button" title="Download Audio">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TTS Modal -->
+            <div id="tts-settingsModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" id="tts-close">&times;</span>
+                    <label for="tts-api-url">API URL:</label>
+                    <input type="text" id="tts-api-url" placeholder="Enter API URL(e.g., https://api.openai.com)">
+                    <label for="tts-api-key">API Key:</label>
+                    <input type="text" id="tts-api-key" placeholder="Enter API Key (Bearer Token)">
+                    <label for="tts-model-input">Model:</label>
+                    <input type="text" id="tts-model-input" placeholder="Enter Model (e.g., tts-1)">
+                    <label for="tts-voice-list">Voice List:</label>
+                    <div id="tts-voice-list-container">
+                        <textarea id="tts-voice-list"
+                            placeholder="Enter voice list (JSON format:[{name:description},...])"></textarea>
+                    </div>
+                    <button id="tts-save-settings">Save Settings</button>
+                </div>
+            </div>
+        </div>
+        <div class="content-container" id="whisper-content">
+            <div class="container">
+                <!-- 使用 Unicode 字符 -->
+                <div class="settings-icon" id="whisper-settings-icon"></div>
+                <h2>Speech-to-Text</h2>
+                <div class="main">
+                    <div class="file-upload" id="file-upload">
+                        <p>Drag and drop a file or click to upload</p>
+                        <input type="file" id="file-input" accept="audio/*">
+                    </div>
+                    <audio id="whisper-audio-player" controls style="display: none;"></audio>
+                    <div class="file-controls" id="file-controls" style="display: none;">
+                        <button id="delete-file">Delete File</button>
+                    </div>
+                    <div class="language-selector">
+                        <select id="language-select">
+                            <option value="">None</option>
+                            <option value="zh">Chinese (中文)</option>
+                            <option value="en">English (英文)</option>
+                            <option value="ja">Japanese (日本語)</option>
+                            <option value="fr">French (Français)</option>
+                            <option value="de">German (Deutsch)</option>
+                            <option value="ru">Russian (Русский)</option>
+                        </select>
+                    </div>
+                    <div class="format-selection">
+                        <label><input type="radio" name="format" value="srt"> SRT Format</label>
+                        <label><input type="radio" name="format" value="txt" checked> TXT Format</label>
+                    </div>
+                    <div class="button-row">
+                        <button id="transcribe-button">Transcribe</button>
+                        <button id="translate-button">Translate</button>
+                    </div>
+                    <div id="result"></div>
+                    <div class="loader-container" id="whisper-loader-container">
+                        <div class="loader" id="whisper-loader"></div>
+                        <div class="loader-text">Processing...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Whisper Modal -->
+            <div id="whisper-settingsModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" id="whisper-close">&times;</span>
+                    <label for="whisper-api-url">API URL:</label>
+                    <input type="text" id="whisper-api-url"
+                        placeholder="Enter API URL(e.g., https://api.openai.com, https://api.groq.com/openai)">
+                    <label for="whisper-api-key">API Key:</label>
+                    <input type="text" id="whisper-api-key" placeholder="Enter API Key">
+                    <label for="whisper-model-name">Model:</label>
+                    <input type="text" id="whisper-model-name" placeholder="Enter Model Name">
+                    <button id="whisper-save-settings">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AudioEdit Tab Content -->
+        <div class="content-container" id="audioedit-content">
+            <div class="container">
+
+                <div class="info-icon" id="audioedit-info-icon"></div>
+                <div id="audioedit-infoModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close" id="audioedit-close">&times;</span>
+                        <h3>Audio Editor 使用说明</h3>
+                        <p>
+                            1. 上传音频文件。<br>
+                            2. 波形图区域：<br>
+                            &nbsp;&nbsp;- 单击选择播放位置。<br>
+                            &nbsp;&nbsp;- 鼠标右键自左向右拖动选择区域进行剪切。<br>
+                            3. 键盘快捷键：<br>
+                            &nbsp;&nbsp;- 空格键：播放/暂停。<br>
+                            &nbsp;&nbsp;- 左右箭头：快退/快进0.1秒。<br>
+                            &nbsp;&nbsp;- 上箭头：跳转到开头。<br>
+                            &nbsp;&nbsp;- 下箭头：跳转到结尾。<br>
+                            4. 鼠标滚轮：<br>
+                            &nbsp;&nbsp;- Ctrl + 滚动：缩放波形图。
+                        </p>
+                    </div>
+                </div>
+
+                <h2>Audio Editor</h2>
+                <div class="main">
+                    <div id="audio-editor-container">
+                        <div id="audio-upload-area">
+                            <p>Drag and drop an audio file or click to upload</p>
+                            <input type="file" id="audio-upload-input" accept="audio/*">
+                        </div>
+
+                        <div id="audio-info"></div>
+
+                        <div id="waveform-container">
+                            <div id="waveform"></div>
+                            <div id="playhead"></div>
+                        </div>
+
+                        <div id="position-display">Position: 0:00</div>
+
+                        <div id="zoom-controls">
+                            <button id="zoom-in-btn">Zoom In</button>
+                            <button id="zoom-out-btn">Zoom Out</button>
+                            <button id="zoom-reset-btn">Reset Zoom</button>
+                        </div>
+
+                        <div id="audio-controls">
+                            <div id="player-controls">
+                                <button id="play-btn">Play</button>
+                                <button id="pause-btn">Pause</button>
+                            </div>
+
+                            <div id="edit-controls">
+                                <button id="cut-btn">Cut Selection</button>
+                                <div class="edit-group">
+                                    <input type="number" id="silence-duration" min="0.1" step="0.1" value="1.0"
+                                        placeholder="sec">
+                                    <button id="add-silence-btn">Add Silence</button>
+                                </div>
+                                <button id="save-btn">Save Audio</button>
+                            </div>
+                        </div>
+
+                        <div class="loader-container" id="audioedit-loader-container">
+                            <div class="loader" id="audioedit-loader"></div>
+                            <div class="loader-text">Processing...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.content-container');
+            const ttsContent = document.getElementById('tts-content');
+            const whisperContent = document.getElementById('whisper-content');
+            const audioeditContent = document.getElementById('audioedit-content');
+
+            // TTS Variables
+            const ttsLoaderContainer = document.getElementById('tts-loader-container');
+            const ttsLoader = document.getElementById('tts-loader');
+            const voiceSelect = document.getElementById('voice-select');
+            const ttsSettingsIcon = document.getElementById('tts-settings-icon');
+            const ttsModal = document.getElementById('tts-settingsModal');
+            const ttsCloseButton = document.getElementById('tts-close');
+            const TTSapiUrlInput = document.getElementById('tts-api-url');
+            const TTSapiKeyInput = document.getElementById('tts-api-key');
+            const voiceListInput = document.getElementById('tts-voice-list');
+            const ttsSaveSettingsButton = document.getElementById('tts-save-settings');
+            const TTSmodelInput = document.getElementById('tts-model-input');
+            const downloadButton = document.getElementById('download-button');
+            const inputText = document.getElementById('input-text'); // Get the input text element
+
+            // Whisper Variables
+            const fileInput = document.getElementById('file-input');
+            const fileUpload = document.getElementById('file-upload');
+            const transcribeButton = document.getElementById('transcribe-button');
+            const translateButton = document.getElementById('translate-button');
+            const languageSelect = document.getElementById('language-select');
+            const result = document.getElementById('result');
+            const whisperSettingsIcon = document.getElementById('whisper-settings-icon');
+            const whisperModal = document.getElementById('whisper-settingsModal');
+            const whisperCloseButton = document.getElementById('whisper-close');
+            const whisperApiUrlInput = document.getElementById('whisper-api-url');
+            const whisperApiKeyInput = document.getElementById('whisper-api-key');
+            const whisperModelNameInput = document.getElementById('whisper-model-name');
+            const whisperSaveSettingsButton = document.getElementById('whisper-save-settings');
+            const whisperAudioPlayer = document.getElementById('whisper-audio-player');
+            const fileControls = document.getElementById('file-controls');
+            const deleteFileButton = document.getElementById('delete-file');
+            const whisperLoaderContainer = document.getElementById('whisper-loader-container');
+            const whisperLoader = document.getElementById('whisper-loader');
+
+            // AudioEdit Variables
+            const audioUploadArea = document.getElementById('audio-upload-area');
+            const audioUploadInput = document.getElementById('audio-upload-input');
+            const waveformContainer = document.getElementById('waveform-container');
+            const waveform = document.getElementById('waveform');
+            const playhead = document.getElementById('playhead');
+            const audioControls = document.getElementById('audio-controls');
+            const playBtn = document.getElementById('play-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const cutBtn = document.getElementById('cut-btn');
+            const addSilenceBtn = document.getElementById('add-silence-btn');
+            const silenceDuration = document.getElementById('silence-duration');
+            const saveBtn = document.getElementById('save-btn');
+            const audioInfo = document.getElementById('audio-info');
+            const zoomInBtn = document.getElementById('zoom-in-btn');
+            const zoomOutBtn = document.getElementById('zoom-out-btn');
+            const zoomResetBtn = document.getElementById('zoom-reset-btn');
+            const positionDisplay = document.getElementById('position-display');
+            const audioeditLoaderContainer = document.getElementById('audioedit-loader-container');
+
+            let selectedFile = null;
+            let whisperSelectedFile = null;
+
+            // AudioEdit specific variables
+            let audioContext;
+            let audioBuffer;
+            let audioSource;
+            let canvasCtx;
+            let isPlaying = false;
+            let startTime = 0;
+            let pausedAt = 0;
+            let zoomLevel = 1;
+            let selectionStart = null;
+            let selectionEnd = null;
+            let selectionArea = null;
+            let isDragging = false;
+            let currentPosition = 0;
+            let animationFrameId = null;
+            let audioSegments = [];
+            let currentSegmentIndex = 0;
+            let tempAudioFiles = [];
+
+            // AudioEdit Modal
+            const audioeditInfoIcon = document.getElementById('audioedit-info-icon');
+            const audioeditModal = document.getElementById('audioedit-infoModal');
+            const audioeditClose = document.getElementById('audioedit-close');
+
+            audioeditInfoIcon.onclick = function () {
+                audioeditModal.style.display = "block";
+            }
+            audioeditClose.onclick = function () {
+                audioeditModal.style.display = "none";
+            }
+
+
+            // Common Functions
+            function adjustContentHeight() {
+                const tabsHeight = document.querySelector('.tabs').offsetHeight;
+                const availableHeight = window.innerHeight - tabsHeight;
+                ttsContent.style.height = `${availableHeight - 20}px`;
+                whisperContent.style.height = `${availableHeight - 20}px`;
+                audioeditContent.style.height = `${availableHeight - 20}px`;
+            }
+
+            // Initialize
+            adjustContentHeight();
+
+            // Tab Switching Logic
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.dataset.target;
+
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(target).classList.add('active');
+                    adjustContentHeight();
+                });
+            });
+
+            // TTS Functions
+            // Load saved settings
+            async function loadTTSSettings() {
+                const config = await window.api.getConfig() || {};
+                const savedApiUrl = config.TTSapiUrl || "https://api.openai.com";
+                const savedApiKey = config.TTSapiKey || "";
+                const savedModel = config.TTSmodel || "tts-1";
+                const savedVoiceList = config.voiceList || "";
+
+                TTSapiUrlInput.value = savedApiUrl;
+                TTSapiKeyInput.value = savedApiKey;
+                TTSmodelInput.value = savedModel;
+                voiceListInput.value = savedVoiceList;
+            }
+
+            // Function to populate voice select dropdown
+            function populateVoiceSelect(data) {
+                voiceSelect.innerHTML = ''; // Clear existing options
+                const savedVoices = [];
+                const gender_map = { Female: 'Female', Male: 'Male', 1: 'Female', 2: 'Male' };
+                const multilingualLanguages = ['multilingual', 'en', 'zh', 'ja', 'korean', 'fr', 'de', 'es', 'it', 'pt'];
+
+                // Check if data is in Microsoft Azure format
+                if (data[0] && data[0].ShortName) {
+                    data.forEach(voice => {
+                        if (voice.ShortName?.includes('Multilingual') || multilingualLanguages.some(lang => voice.Locale?.includes(lang))) {
+                            let option = document.createElement('option');
+                            option.value = voice.ShortName;
+                            option.textContent = `${voice.ShortName} | ${voice.Locale} | ${gender_map[voice.Gender]}`;
+                            voiceSelect.appendChild(option);
+                            savedVoices.push({ [voice.ShortName]: option.textContent });
+                        }
+                    });
+                }
+                return savedVoices;
+            }
+
+            function populateVoiceSelect_local(data) {
+                voiceSelect.innerHTML = ''; // Clear existing options
+
+                data.forEach(voice => {
+                    for (const [key, value] of Object.entries(voice)) {
+                        let option = document.createElement('option');
+                        option.value = key;           // 使用键作为 option 的 value
+                        option.textContent = value;     // 使用值作为 option 的文本内容
+                        voiceSelect.appendChild(option);
+                    }
+                });
+            }
+
+            // Function to fetch voices from API and save to local storage
+            async function fetchAndSaveVoices(TTSapiUrl, TTSapiKey) {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                // Add Authorization header if TTSapiKey is provided
+                if (TTSapiKey) {
+                    headers['Authorization'] = `Bearer ${TTSapiKey}`;
+                }
+                fetch(`${TTSapiUrl}/voices`, {
+                    method: 'GET',
+                    headers: headers
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(async data => {
+                        // Update voiceSelect dropdown immediately
+                        const savedVoices = populateVoiceSelect(data);
+                        // Save fetched voices to db
+                        await window.api.updateConfig({ voiceList: JSON.stringify(savedVoices) });
+                        voiceListInput.value = JSON.stringify(savedVoices, null, 2);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching /voices:', error);
+                        // Try fetching from /v1/voices
+                        fetch(`${TTSapiUrl}/v1/voices/all`, {
+                            method: 'GET',
+                            headers: headers
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(async data => {
+                                // Update voiceSelect dropdown immediately
+                                const savedVoices = populateVoiceSelect(data);
+                                // Save fetched voices to db
+                                await window.api.updateConfig({ voiceList: JSON.stringify(savedVoices) });
+                                voiceListInput.value = JSON.stringify(savedVoices, null, 2);
+                            })
+                            .catch(error => {
+                                console.error('Error fetching /v1/voices/all:', error);
+                                fetch(`${TTSapiUrl}/v1/voices`, {
+                                    method: 'GET',
+                                    headers: headers
+                                })
+                                    .then(response => {
+                                        if (!response.ok) {
+                                            throw new Error('Network response was not ok');
+                                        }
+                                        return response.json();
+                                    })
+                                    .then(async data => {
+                                        // Update voiceSelect dropdown immediately
+                                        const savedVoices = populateVoiceSelect(data);
+                                        // Save fetched voices to db
+                                        await window.api.updateConfig({ voiceList: JSON.stringify(savedVoices) });
+                                        voiceListInput.value = JSON.stringify(savedVoices, null, 2);
+                                    })
+                                    .catch(error => {
+                                        console.error('Error fetching /v1/voices:', error);
+                                        showToast('Error fetching voices. Please check your API URL and API Key.');
+                                    });
+                            });
+                    });
+            }
+
+            // Function to fetch voices from API or use saved voices
+            async function fetchVoices() {
+                const config = await window.api.getConfig() || {};
+                const TTSapiUrl = TTSapiUrlInput.value;
+                const TTSapiKey = TTSapiKeyInput.value;
+                const savedVoices = voiceListInput.value;
+
+                if (savedVoices) {
+                    try {
+                        const voices = JSON.parse(savedVoices);
+                        populateVoiceSelect_local(voices);
+                    } catch (error) {
+                        console.error('Error parsing saved voices:', error);
+                        // If parsing fails, fetch from API
+                        fetchAndSaveVoices(TTSapiUrl, TTSapiKey);
+                    }
+                } else {
+                    fetchAndSaveVoices(TTSapiUrl, TTSapiKey);
+                }
+            }
+
+            // Function to show toast message
+            function showToast(message) {
+                const toastContainer = document.getElementById('toast-container');
+                const toastMessage = document.createElement('div');
+                toastMessage.classList.add('toast-message');
+                toastMessage.textContent = message;
+                toastContainer.appendChild(toastMessage);
+
+                // Show the toast
+                setTimeout(() => {
+                    toastMessage.classList.add('show');
+                }, 100);
+
+                // Hide and remove the toast after 3 seconds
+                setTimeout(() => {
+                    toastMessage.classList.remove('show');
+                    setTimeout(() => {
+                        toastContainer.removeChild(toastMessage);
+                    }, 500);
+                }, 3000);
+            }
+
+            // TTS Form Submission
+            document.getElementById('tts-form').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                ttsLoaderContainer.style.display = 'flex';
+
+                let inputText = document.getElementById('input-text').value;
+                let selectedVoice = voiceSelect.value;
+                const TTSapiUrl = TTSapiUrlInput.value;
+                const TTSapiKey = TTSapiKeyInput.value;
+                const TTSmodel = TTSmodelInput.value;
+
+                await window.api.updateConfig({ selectedVoice: selectedVoice });
+
+                let requestData = {
+                    model: TTSmodel,
+                    input: inputText,
+                    voice: selectedVoice || "alloy"
+                };
+
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                // Add Authorization header if TTSapiKey is provided
+                if (TTSapiKey) {
+                    headers['Authorization'] = `Bearer ${TTSapiKey}`;
+                }
+
+                fetch(`${TTSapiUrl}/v1/audio/speech`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestData)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        ttsLoaderContainer.style.display = 'none';
+                        let url = window.URL.createObjectURL(blob);
+                        let audioPlayer = document.getElementById('audio-player');
+
+                        audioPlayer.src = url;
+                        downloadButton.onclick = () => {
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'tts.wav';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        };
+
+                        document.getElementById('audio-container').style.display = 'flex';
+                    })
+                    .catch(error => {
+                        ttsLoaderContainer.style.display = 'none';
+                        console.error('Error:', error);
+                        showToast('Failed to convert text to speech. Please check your API settings, key, and voice list.');
+                    });
+            });
+
+            // Add event listener for keydown on input text
+            inputText.addEventListener('keydown', async function (e) {
+                if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey) {
+                    e.preventDefault(); // Prevent default action to avoid new line
+                    ttsLoaderContainer.style.display = 'flex';
+
+                    let inputText = document.getElementById('input-text').value;
+                    let selectedVoice = voiceSelect.value;
+                    const TTSapiUrl = TTSapiUrlInput.value;
+                    const TTSapiKey = TTSapiKeyInput.value;
+                    const TTSmodel = TTSmodelInput.value;
+
+                    // Save the selected voice
+                    await window.api.updateConfig({ selectedVoice: selectedVoice });
+
+                    let requestData = {
+                        model: TTSmodel,
+                        input: inputText,
+                        voice: selectedVoice || "alloy"
+                    };
+
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+
+                    // Add Authorization header if TTSapiKey is provided
+                    if (TTSapiKey) {
+                        headers['Authorization'] = `Bearer ${TTSapiKey}`;
+                    }
+
+                    fetch(`${TTSapiUrl}/v1/audio/speech`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(requestData)
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.blob();
+                        })
+                        .then(blob => {
+                            ttsLoaderContainer.style.display = 'none';
+                            let url = window.URL.createObjectURL(blob);
+                            let audioPlayer = document.getElementById('audio-player');
+
+                            audioPlayer.src = url;
+                            downloadButton.onclick = () => {
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = 'tts.wav';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            };
+
+                            document.getElementById('audio-container').style.display = 'flex';
+                        })
+                        .catch(error => {
+                            ttsLoaderContainer.style.display = 'none';
+                            console.error('Error:', error);
+                            showToast('Failed to convert text to speech. Please check your API settings, key, and voice list.');
+                        });
+                } else if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
+                    // Allow new line on Ctrl+Enter or Shift+Enter
+                    // Default action is to add a new line, so no action is needed
+                }
+            });
+
+            downloadButton.innerHTML = '&#x2913;';
+
+            // TTS Modal Event Listeners
+            ttsSettingsIcon.onclick = function () {
+                ttsModal.style.display = "block";
+            }
+
+            ttsCloseButton.onclick = function () {
+                ttsModal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                if (event.target == ttsModal) {
+                    ttsModal.style.display = "none";
+                }
+                if (event.target == whisperModal) {
+                    whisperModal.style.display = "none";
+                }
+                if (event.target == audioeditModal) {
+                    audioeditModal.style.display = "none";
+                }
+            }
+
+            ttsSaveSettingsButton.onclick = async function () {
+                const config = await window.api.getConfig() || {};
+
+                const newConfig = {
+                    TTSapiUrl: TTSapiUrlInput.value,
+                    TTSapiKey: TTSapiKeyInput.value,
+                    TTSmodel: TTSmodelInput.value,
+                    selectedVoice: voiceSelect.value // Save the selected voice
+                }
+
+                // Only save if user has manually entered something, otherwise keep the fetched list
+                if (voiceListInput.value !== config.voiceList) {
+                    newConfig.voiceList = voiceListInput.value;
+                }
+                await window.api.updateConfig(newConfig);
+                ttsModal.style.display = "none";
+                fetchVoices(); // Refresh voices after saving
+            }
+
+            // Whisper Functions
+            // Load saved API URL, API Key, and Model from utools db
+            async function loadWhisperSettings() {
+                const config = await window.api.getConfig() || {};
+                const savedApiUrl = config.WhisperapiUrl || "https://api.groq.com/openai";
+                const savedApiKey = config.WhisperapiKey || "gsk_xxx";
+                const savedModelName = config.WhisperapiModel || "whisper-large-v3";
+
+                whisperApiUrlInput.value = savedApiUrl;
+                whisperApiKeyInput.value = savedApiKey;
+                whisperModelNameInput.value = savedModelName;
+            }
+
+            // Initialize Whisper settings
+            let WhisperapiUrl, WhisperapiKey, WhisperapiModel;
+            async function initializeWhisperSettings() {
+                await loadWhisperSettings();
+                WhisperapiUrl = whisperApiUrlInput.value;
+                WhisperapiKey = whisperApiKeyInput.value;
+                WhisperapiModel = whisperModelNameInput.value;
+            }
+
+            // Drag-and-drop functionality
+            fileUpload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUpload.classList.add('dragging');
+            });
+
+            fileUpload.addEventListener('dragleave', () => {
+                fileUpload.classList.remove('dragging');
+            });
+
+            fileUpload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove('dragging');
+                whisperSelectedFile = e.dataTransfer.files[0];
+                handleWhisperFileSelection(whisperSelectedFile);
+            });
+
+            fileUpload.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (e) => {
+                whisperSelectedFile = e.target.files[0];
+                handleWhisperFileSelection(whisperSelectedFile);
+            });
+
+            const handleWhisperFileSelection = (file) => {
+                if (file) {
+                    fileUpload.innerHTML = `<p>Selected File: ${file.name}</p>`;
+                    whisperAudioPlayer.src = URL.createObjectURL(file);
+                    whisperAudioPlayer.style.display = 'block';
+                    fileControls.style.display = 'flex';
+                }
+            };
+
+            deleteFileButton.addEventListener('click', () => {
+                whisperSelectedFile = null;
+                fileUpload.innerHTML = `<p>Drag and drop a file or click to upload</p>`;
+                whisperAudioPlayer.style.display = 'none';
+                fileControls.style.display = 'none';
+            });
+
+            const handleApiCall = (endpoint, params = {}) => {
+                if (!whisperSelectedFile) {
+                    showToast("Please upload a file first.");
+                    return;
+                }
+                const selectedFormat = document.querySelector('input[name="format"]:checked')?.value;
+
+                const formData = new FormData();
+                formData.append("file", whisperSelectedFile);
+                formData.append("model", WhisperapiModel);
+                formData.append("response_format", "verbose_json"); // 设置响应格式为 verbose_json
+
+                if (params.language && endpoint === '/v1/audio/transcriptions') formData.append("language", params.language);
+
+                // Show loader while processing
+                whisperLoaderContainer.style.display = 'flex';
+                result.textContent = '';
+
+                fetch(`${WhisperapiUrl}${endpoint}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": WhisperapiKey ? `Bearer ${WhisperapiKey}` : undefined
+                    },
+                    body: formData
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        whisperLoaderContainer.style.display = 'none'; // Hide loader
+                        if (data.segments) {
+                            let formattedText;
+                            if (selectedFormat === 'srt') {
+                                formattedText = convertToSRT(data.segments);
+                            } else {
+                                formattedText = data.text;
+                            }
+                            result.textContent = formattedText;
+                            createDownloadButton(formattedText, selectedFormat);
+                        } else {
+                            result.textContent = `Error: No segments found in response.`;
+                        }
+                    })
+                    .catch(error => {
+                        whisperLoaderContainer.style.display = 'none'; // Hide loader
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}. Please check your API settings and network.`);
+                    });
+            };
+
+            // 将 verbose_json 格式转换为 SRT 格式
+            function convertToSRT(segments) {
+                let srtContent = '';
+                segments.forEach((segment, index) => {
+                    const startTime = formatTime(segment.start);
+                    const endTime = formatTime(segment.end);
+                    srtContent += `${index + 1}\n${startTime} --> ${endTime}\n${segment.text.trim()}\n\n`;
+                });
+                return srtContent;
+            }
+
+            // 格式化时间
+            function formatTime(seconds) {
+                const date = new Date(null);
+                date.setSeconds(seconds);
+                const hours = date.getUTCHours().toString().padStart(2, '0');
+                const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                const secs = date.getUTCSeconds().toString().padStart(2, '0');
+                const millis = Math.round((seconds - Math.floor(seconds)) * 1000).toString().padStart(3, '0');
+                return `${hours}:${minutes}:${secs},${millis}`;
+            }
+
+            const createDownloadButton = (text, fileType) => {
+                // Create a Blob from the text content
+                const blob = new Blob([text], { type: 'text/plain' });
+
+                // Create a new button element
+                const button = document.createElement('button');
+                button.textContent = `Download ${fileType.toUpperCase()}`;
+                button.classList.add('download-button');
+
+                // Set the button style
+                button.style.backgroundColor = '#3e8e41';
+                button.style.color = 'white';
+                button.style.padding = '12px 20px';
+                button.style.borderRadius = '10px';
+                button.style.cursor = 'pointer';
+                button.style.marginTop = '20px';
+                button.style.border = 'none';
+                button.style.fontSize = '16px';
+                button.style.width = '100%';
+
+                // Add event listener to handle the download when the button is clicked
+                button.addEventListener('click', () => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `transcription.${fileType}`;
+                    link.click();
+                });
+
+                // Remove any existing download button and append the new one
+                const existingButton = result.querySelector('.download-button');
+                if (existingButton) {
+                    result.removeChild(existingButton);
+                }
+                result.appendChild(document.createElement('br'));
+                result.appendChild(button);
+            };
+
+            transcribeButton.addEventListener('click', () => {
+                const language = languageSelect.value;
+                handleApiCall('/v1/audio/transcriptions', { language });
+            });
+
+            translateButton.addEventListener('click', () => {
+                handleApiCall('/v1/audio/translations');
+            });
+
+            // Whisper Modal Event Listeners
+            whisperSettingsIcon.onclick = function () {
+                whisperModal.style.display = "block";
+            }
+
+            whisperCloseButton.onclick = function () {
+                whisperModal.style.display = "none";
+            }
+
+            whisperSaveSettingsButton.addEventListener('click', async () => {
+                WhisperapiUrl = whisperApiUrlInput.value;
+                WhisperapiKey = whisperApiKeyInput.value;
+                WhisperapiModel = whisperModelNameInput.value;
+
+                // Save to utools db
+                await window.api.updateConfig({
+                    WhisperapiUrl: WhisperapiUrl,
+                    WhisperapiKey: WhisperapiKey,
+                    WhisperapiModel: WhisperapiModel
+                });
+
+                whisperModal.style.display = 'none';
+            });
+
+            // AudioEdit Functions
+            // Initialize the audio context when needed to avoid autoplay policy issues
+            function initAudioContext() {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                return audioContext;
+            }
+
+            // Format time in mm:ss format
+            function formatPositionTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            // Update the playhead position and ensure visualization matches
+            function updatePlayhead() {
+                if (!audioBuffer) return;
+
+                if (isPlaying) {
+                    currentPosition = (audioContext.currentTime - startTime) + pausedAt;
+
+                    if (currentPosition >= audioBuffer.duration) {
+                        pauseAudio();
+                        currentPosition = 0;
+                        pausedAt = 0;
+                    }
+                }
+
+                const pixelPosition = (currentPosition / audioBuffer.duration) * waveform.offsetWidth * zoomLevel;
+                playhead.style.left = `${pixelPosition}px`;
+                // Ensure playhead stays within visible bounds
+                const playheadPosition = Math.max(0, Math.min(waveform.offsetWidth * zoomLevel, pixelPosition));
+                playhead.style.left = `${playheadPosition}px`;
+
+                positionDisplay.textContent = `Position: ${formatPositionTime(currentPosition)}`;
+
+                // Auto-scroll the waveform container
+                const waveformRect = waveformContainer.getBoundingClientRect();
+                const playheadRect = playhead.getBoundingClientRect();
+                const scrollOffset = playheadRect.left - waveformRect.left - waveformRect.width / 2;
+
+                waveformContainer.scrollLeft += scrollOffset;
+                animationFrameId = requestAnimationFrame(updatePlayhead);
+            }
+
+            // Draw waveform visualization
+            function drawWaveform() {
+                if (!audioBuffer) return;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = waveform.offsetWidth * zoomLevel;
+                canvas.height = waveform.offsetHeight;
+                waveform.innerHTML = '';
+                waveform.appendChild(canvas);
+
+                canvasCtx = canvas.getContext('2d');
+                canvasCtx.fillStyle = 'rgb(220, 220, 220)';
+                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const data = audioBuffer.getChannelData(0);
+                const step = Math.ceil(data.length / canvas.width);
+                const amp = canvas.height / 2;
+
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(0, amp);
+
+                for (let i = 0; i < canvas.width; i++) {
+                    let min = 1.0;
+                    let max = -1.0;
+
+                    for (let j = 0; j < step; j++) {
+                        const datum = data[(i * step) + j];
+                        if (datum < min) min = datum;
+                        if (datum > max) max = datum;
+                    }
+
+                    canvasCtx.lineTo(i, (1 + min) * amp);
+                    canvasCtx.lineTo(i, (1 + max) * amp);
+                }
+
+                canvasCtx.strokeStyle = 'rgb(70, 70, 70)';
+                canvasCtx.stroke();
+            }
+
+            // Play audio
+            function playAudio() {
+                if (!audioBuffer || isPlaying) return;
+
+                const context = initAudioContext();
+                // Create a new source for each play
+                audioSource = context.createBufferSource();
+                audioSource.buffer = audioBuffer;
+                audioSource.connect(context.destination);
+
+                startTime = context.currentTime;
+                audioSource.start(0, pausedAt);
+                isPlaying = true;
+
+                updatePlayhead();
+            }
+
+            // Pause audio
+            function pauseAudio() {
+                if (!isPlaying || !audioSource) return;
+
+                audioSource.stop();
+                pausedAt = (audioContext.currentTime - startTime) + pausedAt;
+                isPlaying = false;
+
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            // Add event listeners for AudioEdit functionality
+            audioUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                audioUploadArea.classList.add('dragging');
+            });
+
+            audioUploadArea.addEventListener('dragleave', () => {
+                audioUploadArea.classList.remove('dragging');
+            });
+
+            audioUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                audioUploadArea.classList.remove('dragging');
+                const file = e.dataTransfer.files[0];
+                handleAudioFileSelection(file);
+            });
+
+            audioUploadArea.addEventListener('click', () => audioUploadInput.click());
+
+            audioUploadInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                handleAudioFileSelection(file);
+            });
+
+            // Load audio file and prepare for editing
+            function handleAudioFileSelection(file) {
+                if (!file || !file.type.includes('audio')) {
+                    showToast('Please select a valid audio file.');
+                    return;
+                }
+
+                selectedFile = file;
+                audioUploadArea.innerHTML = `<p>Selected File: ${file.name}</p>`;
+
+                // Initialize audio context
+                initAudioContext();
+
+                // Reset variables
+                pausedAt = 0;
+                currentPosition = 0;
+                zoomLevel = 1;
+                selectionStart = null;
+                selectionEnd = null;
+
+                // Clear previous selection
+                if (selectionArea) {
+                    waveform.removeChild(selectionArea);
+                    selectionArea = null;
+                }
+
+                // Read the file and decode audio data
+                const fileReader = new FileReader();
+
+                fileReader.onload = (event) => {
+                    const arrayBuffer = event.target.result;
+
+                    audioContext.decodeAudioData(arrayBuffer)
+                        .then(buffer => {
+                            audioBuffer = buffer;
+
+                            // Display audio info
+                            audioInfo.textContent = `Duration: ${formatPositionTime(buffer.duration)} | Sample Rate: ${buffer.sampleRate}Hz | Channels: ${buffer.numberOfChannels}`;
+                            audioInfo.style.display = 'block';
+
+                            // Show waveform and controls
+                            waveformContainer.style.display = 'block';
+                            audioControls.style.display = 'flex';
+
+                            // Initialize the first segment
+                            audioSegments = [{
+                                buffer: audioBuffer,
+                                startTime: 0,
+                                endTime: audioBuffer.duration
+                            }];
+                            currentSegmentIndex = 0;
+
+                            // Draw waveform
+                            drawWaveform();
+                        })
+                        .catch(error => {
+                            console.error('Error decoding audio data:', error);
+                            showToast('Error decoding audio file.');
+                        });
+                };
+
+                fileReader.onerror = () => {
+                    showToast('Error reading audio file.');
+                };
+
+                fileReader.readAsArrayBuffer(file);
+            }
+
+            // Click on waveform to set playback position
+            waveform.addEventListener('click', (e) => {
+                if (!audioBuffer) return;
+                const rect = waveform.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const clickPositionRatio = x / (waveform.offsetWidth * zoomLevel);
+                currentPosition = clickPositionRatio * audioBuffer.duration;
+                if (isPlaying) {
+                    pauseAudio();
+                    pausedAt = currentPosition;
+                    playAudio(); // Restart from the new position
+                } else {
+                    pausedAt = currentPosition;
+                    updatePlayhead();
+                }
+                // Clear any existing selection *safely*
+                if (selectionArea && waveform.contains(selectionArea)) {
+                    waveform.removeChild(selectionArea);
+                    selectionArea = null; // Important: Set to null after removal
+                }
+            });
+
+
+            // Mousedown event for selection
+            waveform.addEventListener('mousedown', (e) => {
+                if (!audioBuffer) return;
+                const rect = waveform.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                // Clear previous selection *safely*
+                if (selectionArea && waveform.contains(selectionArea)) {
+                    waveform.removeChild(selectionArea);
+                    selectionArea = null; // Important: Set to null after removal
+                }
+                // Calculate the start position in seconds
+                selectionStart = (x / (waveform.offsetWidth * zoomLevel)) * audioBuffer.duration;
+                selectionEnd = null;
+                // Create new selection area
+                selectionArea = document.createElement('div');
+                selectionArea.className = 'selection-area';
+                // Calculate the pixel position for the start
+                selectionArea.style.left = `${(selectionStart / audioBuffer.duration) * waveform.offsetWidth * zoomLevel}px`;
+                selectionArea.style.width = '0px';
+                waveform.appendChild(selectionArea);
+                isDragging = true;
+            });
+
+            // Mousemove event for selection
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging || !audioBuffer || !selectionArea) return;
+                const rect = waveform.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                // Constrain to waveform boundaries
+                x = Math.max(0, Math.min(x, waveform.offsetWidth * zoomLevel));
+                // Calculate end position in seconds
+                selectionEnd = (x / (waveform.offsetWidth * zoomLevel)) * audioBuffer.duration;
+                let startPixel = parseFloat(selectionArea.style.left);
+                let width = x - startPixel;
+                if (x < startPixel) {
+                    selectionArea.style.left = `${x}px`;
+                    selectionArea.style.width = `${Math.abs(width)}px`;
+                } else {
+                    selectionArea.style.width = `${width}px`;
+                }
+            });
+            // Mouseup event for selection
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                if (selectionStart !== null && selectionEnd !== null) {
+                    // Ensure selectionStart is less than selectionEnd
+                    if (selectionStart > selectionEnd) {
+                        [selectionStart, selectionEnd] = [selectionEnd, selectionStart];
+                    }
+                }
+            });
+
+            // Play button
+            playBtn.addEventListener('click', playAudio);
+
+            // Pause button
+            pauseBtn.addEventListener('click', pauseAudio);
+
+            // Cut selection
+            cutBtn.addEventListener('click', () => {
+                if (!audioBuffer || selectionStart === null || selectionEnd === null) {
+                    showToast('Please select a region to cut.');
+                    return;
+                }
+
+                audioeditLoaderContainer.style.display = 'flex';
+
+                // Sort selection boundaries if needed
+                if (selectionStart > selectionEnd) {
+                    [selectionStart, selectionEnd] = [selectionEnd, selectionStart];
+                }
+
+                // Save current position
+                const wasPlaying = isPlaying;
+                const savedPosition = currentPosition;
+
+                if (isPlaying) {
+                    pauseAudio();
+                }
+
+                // Create a new AudioBuffer with the cut applied
+                const newLength = audioBuffer.length - Math.floor((selectionEnd - selectionStart) * audioBuffer.sampleRate);
+                const newBuffer = audioContext.createBuffer(
+                    audioBuffer.numberOfChannels,
+                    newLength,
+                    audioBuffer.sampleRate
+                );
+
+                // Copy data before the cut
+                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                    const channelData = audioBuffer.getChannelData(channel);
+                    const newChannelData = newBuffer.getChannelData(channel);
+
+                    const startOffset = Math.floor(selectionStart * audioBuffer.sampleRate);
+
+                    // Copy samples before selection
+                    for (let i = 0; i < startOffset; i++) {
+                        newChannelData[i] = channelData[i];
+                    }
+
+                    // Copy samples after selection
+                    const endOffset = Math.floor(selectionEnd * audioBuffer.sampleRate);
+                    for (let i = endOffset; i < audioBuffer.length; i++) {
+                        newChannelData[i - (endOffset - startOffset)] = channelData[i];
+                    }
+                }
+
+                // Update audio buffer
+                audioBuffer = newBuffer;
+
+                // Adjust current position
+                if (savedPosition > selectionEnd) {
+                    currentPosition = savedPosition - (selectionEnd - selectionStart);
+                } else if (savedPosition > selectionStart && savedPosition < selectionEnd) {
+                    currentPosition = selectionStart;
+                } else {
+                    currentPosition = savedPosition;
+                }
+
+                pausedAt = currentPosition;
+
+                // MODIFIED SECTION
+                // Clear selection
+                if (selectionArea && waveform.contains(selectionArea)) {
+                    waveform.removeChild(selectionArea);
+                    selectionArea = null; // Important: Set to null
+                    selectionStart = null;
+                    selectionEnd = null;
+                }
+                // END MODIFIED SECTION
+
+                // Update waveform
+                drawWaveform();
+                updatePlayhead();
+
+                // Update audio info
+                audioInfo.textContent = `Duration: ${formatPositionTime(audioBuffer.duration)} | Sample Rate: ${audioBuffer.sampleRate}Hz | Channels: ${audioBuffer.numberOfChannels}`;
+
+                // Restart playback if it was playing
+                if (wasPlaying) {
+                    playAudio();
+                }
+
+                audioeditLoaderContainer.style.display = 'none';
+            });
+
+
+            // Add silence at current position
+            addSilenceBtn.addEventListener('click', () => {
+                if (!audioBuffer) {
+                    showToast('Please load an audio file first.');
+                    return;
+                }
+
+                const duration = parseFloat(silenceDuration.value);
+                if (isNaN(duration) || duration <= 0) {
+                    showToast('Please enter a valid silence duration.');
+                    return;
+                }
+
+                audioeditLoaderContainer.style.display = 'flex';
+
+                // Save current position and playback state
+                const wasPlaying = isPlaying;
+                const insertPosition = pausedAt;
+
+                if (isPlaying) {
+                    pauseAudio();
+                }
+
+                // Create a new buffer with added silence
+                const silenceSamples = Math.floor(duration * audioBuffer.sampleRate);
+                const newLength = audioBuffer.length + silenceSamples;
+                const newBuffer = audioContext.createBuffer(
+                    audioBuffer.numberOfChannels,
+                    newLength,
+                    audioBuffer.sampleRate
+                );
+
+                // Insert silence at current position
+                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                    const channelData = audioBuffer.getChannelData(channel);
+                    const newChannelData = newBuffer.getChannelData(channel);
+
+                    const insertOffset = Math.floor(insertPosition * audioBuffer.sampleRate);
+
+                    // Copy samples before insertion point
+                    for (let i = 0; i < insertOffset; i++) {
+                        newChannelData[i] = channelData[i];
+                    }
+
+                    // Leave silence (zeros are default in the new buffer)
+
+                    // Copy samples after insertion point
+                    for (let i = insertOffset; i < audioBuffer.length; i++) {
+                        newChannelData[i + silenceSamples] = channelData[i];
+                    }
+                }
+
+                // Update audio buffer
+                audioBuffer = newBuffer;
+
+                // Adjust current position
+                currentPosition = insertPosition;
+                pausedAt = currentPosition;
+
+                // Update waveform
+                drawWaveform();
+                updatePlayhead();
+
+                // Update audio info
+                audioInfo.textContent = `Duration: ${formatPositionTime(audioBuffer.duration)} | Sample Rate: ${audioBuffer.sampleRate}Hz | Channels: ${audioBuffer.numberOfChannels}`;
+
+                // Restart playback if it was playing
+                if (wasPlaying) {
+                    playAudio();
+                }
+
+                audioeditLoaderContainer.style.display = 'none';
+            });
+
+            // Save audio
+            saveBtn.addEventListener('click', async () => {
+                if (!audioBuffer) {
+                    showToast('Please load an audio file first.');
+                    return;
+                }
+
+                audioeditLoaderContainer.style.display = 'flex';
+
+                try {
+                    // Create a temporary WAV file
+                    audioData = audioBufferToWav(audioBuffer);
+                    const blob = new Blob([audioData], { type: 'audio/wav' });
+                    const url = URL.createObjectURL(blob);
+
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'edited_audio.wav';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    audioeditLoaderContainer.style.display = 'none';
+                } catch (error) {
+                    console.error('Error saving audio:', error);
+                    showToast('Error saving audio file.');
+                    audioeditLoaderContainer.style.display = 'none';
+                }
+            });
+
+            // Convert AudioBuffer to WAV format
+            function audioBufferToWav(buffer) {
+                const numChannels = buffer.numberOfChannels;
+                const sampleRate = buffer.sampleRate;
+                const length = buffer.length * numChannels * 2; // 16-bit samples
+                const dataLength = length + 44; // 44 bytes for WAV header
+
+                const arrayBuffer = new ArrayBuffer(dataLength);
+                const view = new DataView(arrayBuffer);
+
+                // Write WAV header
+                writeString(view, 0, 'RIFF');
+                view.setUint32(4, dataLength - 8, true); // file length - 8
+                writeString(view, 8, 'WAVE');
+                writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true); // PCM format length
+                view.setUint16(20, 1, true); // PCM format
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * 2, true); // byte rate
+                view.setUint16(32, numChannels * 2, true); // block align
+                view.setUint16(34, 16, true); // bits per sample
+                writeString(view, 36, 'data');
+                view.setUint32(40, length, true);
+
+                // Write audio data
+                const channels = [];
+                for (let i = 0; i < numChannels; i++) {
+                    channels.push(buffer.getChannelData(i));
+                }
+
+                let offset = 44;
+                for (let i = 0; i < buffer.length; i++) {
+                    for (let channel = 0; channel < numChannels; channel++) {
+                        // Convert float sample to 16-bit
+                        const sample = Math.max(-1, Math.min(1, channels[channel][i]));
+                        const int16Sample = Math.floor(sample * 32767);
+                        view.setInt16(offset, int16Sample, true);
+                        offset += 2;
+                    }
+                }
+
+                return arrayBuffer;
+            }
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            // Zoom in
+            zoomInBtn.addEventListener('click', () => {
+                if (!audioBuffer) return;
+
+                zoomLevel *= 1.5;
+                drawWaveform();
+                updatePlayhead();  // Redraw playhead after zoom
+            });
+
+            // Zoom out
+            zoomOutBtn.addEventListener('click', () => {
+                if (!audioBuffer) return;
+
+                zoomLevel = Math.max(1, zoomLevel / 1.5);
+                drawWaveform();
+                updatePlayhead(); // Redraw playhead after zoom
+            });
+
+            // Reset zoom
+            zoomResetBtn.addEventListener('click', () => {
+                if (!audioBuffer) return;
+
+                zoomLevel = 1;
+                drawWaveform();
+                updatePlayhead(); // Redraw playhead after zoom
+            });
+
+            // Mouse wheel zoom and horizontal scroll
+            waveformContainer.addEventListener('wheel', (e) => {
+                if (!audioBuffer) return;
+
+                e.preventDefault();
+
+                if (e.ctrlKey) {
+                    // Zoom with Ctrl + wheel
+                    if (e.deltaY < 0) {
+                        zoomLevel *= 1.1; // Zoom in
+                    } else {
+                        zoomLevel = Math.max(1, zoomLevel / 1.1); // Zoom out
+                    }
+                    drawWaveform();
+                    updatePlayhead();
+                } else {
+                    // Horizontal scroll with wheel
+                    waveformContainer.scrollLeft += e.deltaY;
+                }
+            });
+
+            // Keyboard controls
+            document.addEventListener('keydown', (e) => {
+                // 检查 AudioEdit 标签页是否激活
+                if (!audioeditContent.classList.contains('active') || !audioBuffer) {
+                    return; // 如果不是 AudioEdit 标签页或没有音频，则不执行
+                }
+
+                switch (e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        if (isPlaying) {
+                            pauseAudio();
+                        } else {
+                            playAudio();
+                        }
+                        break;
+
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        // Move 0.1 seconds back
+                        currentPosition = Math.max(0, currentPosition - 0.1);
+                        pausedAt = currentPosition;
+
+                        if (isPlaying) {
+                            pauseAudio();
+                            playAudio();
+                        } else {
+                            updatePlayhead();
+                        }
+                        break;
+
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        // Move 0.1 seconds forward
+                        currentPosition = Math.min(audioBuffer.duration, currentPosition + 0.1);
+                        pausedAt = currentPosition;
+
+                        if (isPlaying) {
+                            pauseAudio();
+                            playAudio();
+                        } else {
+                            updatePlayhead();
+                        }
+                        break;
+                    case 'ArrowUp': // Jump to the beginning
+                        e.preventDefault();
+                        currentPosition = 0;
+                        pausedAt = currentPosition;
+                        if (isPlaying) {
+                            pauseAudio();
+                            playAudio();
+                        } else {
+                            updatePlayhead();
+                        }
+                        break;
+                    case 'ArrowDown': // Jump to the end
+                        e.preventDefault();
+                        currentPosition = audioBuffer.duration;
+                        pausedAt = currentPosition;
+
+                        if (isPlaying) {
+                            pauseAudio();
+                            playAudio();
+                        } else {
+                            updatePlayhead();
+                        }
+                        break;
+                }
+            });
+
+            // Initialize TTS and Whisper
+            async function initialize() {
+                await loadTTSSettings();
+                await initializeWhisperSettings();
+                await fetchVoices();
+                // Set the selected voice from saved settings after fetching voices
+                const config = await window.api.getConfig() || {};
+                if (config.selectedVoice) {
+                    voiceSelect.value = config.selectedVoice;
+                }
+            }
+
+            initialize();
+
+            window.addEventListener('resize', adjustContentHeight);
+        });
+    </script>
+</body>
+
+</html>
