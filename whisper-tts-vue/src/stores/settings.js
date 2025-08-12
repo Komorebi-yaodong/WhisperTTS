@@ -14,14 +14,21 @@ export const useSettingsStore = defineStore('settings', () => {
     WhisperapiModel: "whisper-large-v3"
   })
 
-  // --- **NEW**: STT File State ---
-  // This state will persist across tab switches
+  // --- STT File State ---
   const sttSelectedFile = ref(null);
   const sttFilePreviewUrl = ref('');
   const sttFileDisplayName = ref('');
 
   // --- STT Transcription State ---
   const transcriptionChunkResults = ref([])
+  const sttChunkOption = ref(0); // **MOVED FROM Whisper.vue**
+
+  // --- TTS State ---
+  const ttsInputText = ref('');
+  const ttsAudioResults = ref([]);
+  const ttsCollapsedChunks = ref({});
+  const ttsSplitOption = ref(0); // **MOVED FROM TTS.vue**
+
 
   // --- Actions ---
   async function loadSettings() {
@@ -32,7 +39,6 @@ export const useSettingsStore = defineStore('settings', () => {
   async function saveSettings(newConfig) {
     Object.assign(config.value, newConfig)
     await window.api.updateConfig(newConfig)
-    utools.showNotification('设置已保存！')
   }
   
   const getRandomApiKey = (type) => {
@@ -48,9 +54,13 @@ export const useSettingsStore = defineStore('settings', () => {
     transcriptionChunkResults.value = []
   }
 
-  // **NEW**: Actions to manage STT file state
+  function resetTtsState() {
+    ttsAudioResults.value = [];
+    ttsCollapsedChunks.value = {};
+  }
+
+
   function setSttFile(file) {
-    // Revoke old URL to prevent memory leaks
     if (sttFilePreviewUrl.value) {
         URL.revokeObjectURL(sttFilePreviewUrl.value);
     }
@@ -87,6 +97,13 @@ export const useSettingsStore = defineStore('settings', () => {
     
     transcriptionChunkResults,
     isProcessing,
-    resetTranscriptionState
+    resetTranscriptionState,
+    sttChunkOption, // **EXPORT NEW STATE**
+
+    ttsInputText,
+    ttsAudioResults,
+    ttsCollapsedChunks,
+    resetTtsState,
+    ttsSplitOption // **EXPORT NEW STATE**
   }
 })

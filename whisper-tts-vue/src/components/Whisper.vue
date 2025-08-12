@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { storeToRefs } from 'pinia';
 import SettingsModal from './SettingsModal.vue';
 import IconSettings from './icons/IconSettings.vue';
+import { ElMessage } from 'element-plus'; // [FIX] Import ElMessage
 
 const settingsStore = useSettingsStore();
 const { 
@@ -11,19 +12,24 @@ const {
     transcriptionChunkResults, 
     sttSelectedFile, 
     sttFilePreviewUrl, 
-    sttFileDisplayName 
+    sttFileDisplayName,
+    sttChunkOption
 } = storeToRefs(settingsStore);
 const { resetTranscriptionState, getRandomApiKey, setSttFile, clearSttFile } = settingsStore;
 
 const format = ref('txt');
 const language = ref('');
 const showSettings = ref(false);
-const chunkOption = ref(0);
 const preparationMessage = ref('');
 const transcriptionMode = ref('transcribe');
 const collapsedChunks = ref({});
 const showBackToTop = ref(false);
 const scrollContainer = ref(null);
+
+const cancellationHandles = ref({
+    ffmpeg: null,
+    fetchController: null,
+});
 
 const isProcessing = computed(() => {
     if (preparationMessage.value) return true;
@@ -34,7 +40,7 @@ const allTasksFinished = computed(() => {
     return !isProcessing.value;
 });
 const completedChunksCount = computed(() => {
-    return transcriptionChunkResults.value.filter(c => c.status === 'success' || c.status === 'error').length;
+    return transcriptionChunkResults.value.filter(c => c.status === 'success' || c.status === 'error' || c.status === 'cancelled').length;
 });
 const finalResultText = computed(() => {
   const successfulChunks = transcriptionChunkResults.value.filter(c => c.status === 'success');
@@ -77,7 +83,7 @@ function handleFileSelect(file) {
         setSttFile(file);
         resetTaskState();
     } else {
-        utools.showNotification('请选择一个有效的音频文件。');
+        ElMessage.error('请选择一个有效的音频文件。'); // [FIX]
     }
 }
 function onFileChange(event) { handleFileSelect(event.target.files[0]); }
@@ -92,13 +98,37 @@ function toggleCollapse(chunkId) {
 function resetTaskState() {
     resetTranscriptionState();
     collapsedChunks.value = {};
+    cancellationHandles.value = { ffmpeg: null, fetchController: null };
+}
+
+function cancelProcessing() {
+    if (cancellationHandles.value.ffmpeg) {
+        cancellationHandles.value.ffmpeg.kill();
+        console.log('[WhisperTTS] FFmpeg process cancelled by user.');
+    }
+    if (cancellationHandles.value.fetchController) {
+        cancellationHandles.value.fetchController.abort();
+        console.log('[WhisperTTS] Fetch requests cancelled by user.');
+    }
+    preparationMessage.value = '正在取消...';
+    transcriptionChunkResults.value.forEach(chunk => {
+        if (chunk.status === 'pending' || chunk.status === 'processing') {
+            chunk.status = 'cancelled';
+            chunk.errorMessage = '用户取消';
+        }
+    });
+    setTimeout(() => {
+        preparationMessage.value = '';
+        resetTaskState();
+    }, 500);
 }
 
 async function startProcessing() {
     if (!sttSelectedFile.value) {
-        utools.showNotification('请先上传一个音频文件。'); return;
+        ElMessage.error('请先上传一个音频文件。'); return; // [FIX]
     }
     resetTaskState();
+    cancellationHandles.value.fetchController = new AbortController();
     const endpoint = transcriptionMode.value === 'translate' ? '/v1/audio/translations' : '/v1/audio/transcriptions';
     try {
         preparationMessage.value = '准备文件中...';
@@ -106,9 +136,16 @@ async function startProcessing() {
         const tempInputPath = await window.api.saveFileToTemp(fileBuffer, sttSelectedFile.value.name);
         
         let taskPaths = [];
-        if (chunkOption.value > 0) {
+        if (sttChunkOption.value > 0) {
             preparationMessage.value = '正在切分音频...';
-            taskPaths = await window.api.sliceAudioWithFFmpeg(tempInputPath, chunkOption.value * 60);
+            taskPaths = await window.api.sliceAudioWithFFmpeg(tempInputPath, sttChunkOption.value * 60, (handle) => {
+                cancellationHandles.value.ffmpeg = handle;
+            });
+            cancellationHandles.value.ffmpeg = null; 
+            if (taskPaths === null) {
+                ElMessage.warning("音频切分已取消。"); // [FIX]
+                throw new Error("Cancelled");
+            }
         } else {
             taskPaths = [tempInputPath];
         }
@@ -118,36 +155,52 @@ async function startProcessing() {
         const tasks = taskPaths.map((path, index) => {
             transcriptionChunkResults.value.push({
                 id: index, status: 'pending', result: null, errorMessage: null,
-                filePath: path, startTime: index * (chunkOption.value * 60)
+                filePath: path, startTime: index * (sttChunkOption.value * 60)
             });
-            // **FIX**: Set default state to collapsed
             collapsedChunks.value[index] = true; 
             return transcribeChunk(index, endpoint);
         });
         await Promise.all(tasks);
     } catch (error) {
-        utools.showNotification(`处理失败: ${error.message}`);
+        if (error.message !== "Cancelled") {
+           ElMessage.error(`处理失败: ${error.message}`); // [FIX]
+        }
         resetTaskState();
     } finally {
         preparationMessage.value = '';
+        cancellationHandles.value = { ffmpeg: null, fetchController: null };
     }
 }
 
 async function transcribeChunk(chunkIndex, endpoint) {
     let chunkState = transcriptionChunkResults.value[chunkIndex];
+    if (cancellationHandles.value.fetchController.signal.aborted) {
+        transcriptionChunkResults.value.splice(chunkIndex, 1, { ...chunkState, status: 'cancelled', errorMessage: '用户取消' });
+        return;
+    }
     transcriptionChunkResults.value.splice(chunkIndex, 1, { ...chunkState, status: 'processing' });
     try {
         let finalFilePath = chunkState.filePath;
         if (finalFilePath.toLowerCase().endsWith('.wav')) {
             chunkState = { ...chunkState, message: '压缩中...' };
             transcriptionChunkResults.value.splice(chunkIndex, 1, chunkState);
-            finalFilePath = await window.api.compressAudioToMp3(finalFilePath);
+            finalFilePath = await window.api.compressAudioToMp3(finalFilePath, (handle) => {
+                cancellationHandles.value.ffmpeg = handle;
+            });
+            cancellationHandles.value.ffmpeg = null; 
+            if (finalFilePath === null) throw new Error("Cancelled during compression");
         }
         const audioBlob = await getBlobFromPath(finalFilePath);
-        const result = await transcribeApiCall(audioBlob, chunkState.startTime || 0, endpoint);
+        const result = await transcribeApiCall(audioBlob, chunkState.startTime || 0, endpoint, cancellationHandles.value.fetchController.signal);
         transcriptionChunkResults.value.splice(chunkIndex, 1, { ...chunkState, status: 'success', result, message: '' });
     } catch (error) {
-        transcriptionChunkResults.value.splice(chunkIndex, 1, { ...chunkState, status: 'error', errorMessage: error.message, message: '' });
+        const isCancelled = error.name === 'AbortError' || error.message.includes("Cancelled");
+        transcriptionChunkResults.value.splice(chunkIndex, 1, { 
+            ...chunkState, 
+            status: isCancelled ? 'cancelled' : 'error', 
+            errorMessage: isCancelled ? '用户取消' : error.message, 
+            message: '' 
+        });
     }
 }
 
@@ -161,17 +214,18 @@ async function getBlobFromPath(filePath) {
 async function retryChunk(chunkState) {
     const chunkIndex = transcriptionChunkResults.value.findIndex(c => c.id === chunkState.id);
     if (chunkIndex !== -1) {
+        cancellationHandles.value.fetchController = new AbortController(); 
         const endpoint = transcriptionMode.value === 'translate' ? '/v1/audio/translations' : '/v1/audio/transcriptions';
         await transcribeChunk(chunkIndex, endpoint);
     }
 }
 
-async function transcribeApiCall(audioBlob, startTime, endpoint) {
+async function transcribeApiCall(audioBlob, startTime, endpoint, signal) {
     const apiKey = getRandomApiKey('Whisper');
     if (!apiKey) throw new Error("未配置有效的 Whisper API 密钥。");
 
     const sizeInMB = audioBlob.size / 1024 / 1024;
-    console.log(`[WhisperTTS] 发送分片 #${Math.round(startTime / (chunkOption.value*60))}, 大小: ${sizeInMB.toFixed(2)} MB`);
+    console.log(`[WhisperTTS] 发送分片 #${Math.round(startTime / (sttChunkOption.value*60))}, 大小: ${sizeInMB.toFixed(2)} MB`);
 
     const formData = new FormData();
     formData.append("file", audioBlob, `chunk.${audioBlob.type.split('/')[1] || 'mp3'}`);
@@ -184,7 +238,8 @@ async function transcribeApiCall(audioBlob, startTime, endpoint) {
     const response = await fetch(`${config.value.WhisperapiUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}` },
-        body: formData
+        body: formData,
+        signal: signal 
     });
 
     if (!response.ok) {
@@ -236,10 +291,10 @@ function formatTime(seconds) {
     </div>
     
     <div class="options-grid">
-      <select v-model="language" class="styled-select" title="选择识别语言" :disabled="transcriptionMode === 'translate'"><option value="">自动识别语言</option><option value="zh">中文</option><option value="en">英文</option><option value="ja">日语</option></select>
-      <select v-model.number="chunkOption" class="styled-select" title="选择分片策略"><option value="0">不分片</option><option value="1">1 分钟/片</option><option value="2">2 分钟/片</option><option value="5">5 分钟/片</option><option value="10">10 分钟/片</option><option value="20">20 分钟/片</option></select>
-      <div class="format-toggle"><label :class="{ active: transcriptionMode === 'transcribe' }"><input type="radio" v-model="transcriptionMode" value="transcribe">原语言</label><label :class="{ active: transcriptionMode === 'translate' }"><input type="radio" v-model="transcriptionMode" value="translate">英文</label></div>
-      <div class="format-toggle"><label :class="{ active: format === 'txt' }"><input type="radio" v-model="format" value="txt">TXT</label><label :class="{ active: format === 'srt' }"><input type="radio" v-model="format" value="srt">SRT</label></div>
+      <select v-model="language" class="styled-select" title="选择识别语言" :disabled="transcriptionMode === 'translate' || isProcessing"><option value="">自动识别语言</option><option value="zh">中文</option><option value="en">英文</option><option value="ja">日语</option></select>
+      <select v-model.number="sttChunkOption" class="styled-select" title="选择分片策略" :disabled="isProcessing"><option value="0">不分片</option><option value="1">1 分钟/片</option><option value="2">2 分钟/片</option><option value="5">5 分钟/片</option><option value="10">10 分钟/片</option><option value="20">20 分钟/片</option></select>
+      <div class="format-toggle"><label :class="{ active: transcriptionMode === 'transcribe', disabled: isProcessing }"><input type="radio" v-model="transcriptionMode" value="transcribe" :disabled="isProcessing">原语言</label><label :class="{ active: transcriptionMode === 'translate', disabled: isProcessing }"><input type="radio" v-model="transcriptionMode" value="translate" :disabled="isProcessing">英文</label></div>
+      <div class="format-toggle"><label :class="{ active: format === 'txt', disabled: isProcessing }"><input type="radio" v-model="format" value="txt" :disabled="isProcessing">TXT</label><label :class="{ active: format === 'srt', disabled: isProcessing }"><input type="radio" v-model="format" value="srt" :disabled="isProcessing">SRT</label></div>
     </div>
 
     <div v-if="preparationMessage || !allTasksFinished" class="global-status-bar">
@@ -248,8 +303,13 @@ function formatTime(seconds) {
     </div>
 
     <div class="action-buttons">
-      <button class="button-primary" @click="startProcessing" :disabled="isProcessing || !sttSelectedFile">
-          {{ isProcessing ? '处理中...' : (transcriptionMode === 'translate' ? '开始翻译' : '开始转写') }}
+      <button 
+        class="button-primary" 
+        :class="{ 'button-danger': isProcessing }"
+        @click="isProcessing ? cancelProcessing() : startProcessing()" 
+        :disabled="!sttSelectedFile">
+          <span v-if="isProcessing && preparationMessage === ''" class="loader"></span>
+          {{ isProcessing ? '取消处理' : (transcriptionMode === 'translate' ? '开始翻译' : '开始转写') }}
       </button>
       <button v-if="finalResultText && allTasksFinished" class="button-success download-button" @click="downloadResult">
         下载结果
@@ -272,10 +332,13 @@ function formatTime(seconds) {
                 <div v-else-if="chunk.status === 'success'"><pre>{{ chunk.result }}</pre></div>
                 <div v-else-if="chunk.status === 'error'" class="error-container">
                     <p>失败: {{ chunk.errorMessage }}</p>
-                    <button @click="retryChunk(chunk)" class="retry-button">
+                    <button @click="retryChunk(chunk)" class="retry-button" :disabled="isProcessing">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                         重试
                     </button>
+                </div>
+                <div v-else-if="chunk.status === 'cancelled'" class="error-container">
+                    <p>任务已取消</p>
                 </div>
             </div>
         </div>
@@ -290,7 +353,6 @@ function formatTime(seconds) {
     <SettingsModal :show="showSettings" type="STT" @close="showSettings = false" @save="settingsStore.saveSettings($event)" />
   </div>
 </template>
-
 
 <style scoped>
 .stt-container { padding-bottom: 60px; }
