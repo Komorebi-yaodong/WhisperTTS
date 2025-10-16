@@ -31,6 +31,15 @@
           			"maxLength": 200000000
 				}
 			]
+		},
+		{
+			"code": "ASR",
+			"explain": "语音输入",
+			"mainHide": true,
+			"cmds": [
+				"asr",
+				"语音输入"
+			]
 		}
 	]
 }

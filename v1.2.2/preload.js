@@ -248,5 +248,26 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
             utools.showNotification('Error:' + error); 
             utools.outPlugin();
         }
+    } 
+    // [修改] ASR 逻辑现在是创建一个新窗口
+    else if (code === 'ASR') {
+        utools.hideMainWindow(true);
+        const asrWindow = utools.createBrowserWindow('asr.html', {
+            width: 250,
+            height: 70,
+            show: true,
+            frame: false, // 保持无边框，若需调试窗口，可临时改为 true
+            resizable: false,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            transparent: true,
+            backgroundColor: 'rgba(255, 255, 255, 0)',
+            webPreferences: {
+                preload: 'asr.js',
+                // devTools: true // 关键：允许在新窗口中使用开发者工具
+            }
+        });
+        asrWindow.focus();
+        // asrWindow.webContents.openDevTools({ mode: 'detach' });
     }
 });
