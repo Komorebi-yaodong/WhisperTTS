@@ -271,14 +271,15 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
             alwaysOnTop: true,
             skipTaskbar: true,
             transparent: true,
+            hasShadow: false,
             backgroundColor: 'rgba(255, 255, 255, 0)',
             webPreferences: {
                 preload: 'asr.js',
-                devTools: true
+                // devTools: true
             }
         });        
         asrWindow.focus();
         asrWindow.webContents.openDevTools({ mode: "detach" });
-        utools.outPlugin();
+        // utools.outPlugin();
     }
 });

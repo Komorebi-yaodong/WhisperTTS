@@ -1,64 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASR</title>
     <style>
+        /* --- 基本重置与布局 --- */
         html, body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
-            background-color: transparent;
+            /* 关键：窗口背景必须透明，才能让我们的容器定义窗口形状 */
+            background-color: transparent; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            border-radius: 35px;
         }
 
-        #container {
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 100%;
-            height: 100%;
-            background-color: #212121; /* 黑色背景 */
-            border-radius: 50px; /* 圆角 */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            /* 黑色背景，略带透明度，更有质感 */
+            background-color: rgba(28, 28, 30, 0.9);
+            /* 关键：实现药丸形状的圆角 */
+            border-radius: 35px; /* 高度是70px，半径为一半就是完美的圆角 */
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px); /* 增加毛玻璃效果 */
+            -webkit-backdrop-filter: blur(10px);
         }
 
+        /* --- 录音波形与加载动画 --- */
         #audio-canvas {
-            width: 180px;
-            height: 50px;
             display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 80%;
         }
 
         .analyzer {
             display: none;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            width: 100%;
-            height: 100%;
+            justify-content: center;
+            gap: 10px;
+            color: #E5E7EB;
         }
 
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #888;
+            width: 28px;
+            height: 28px;
+            border: 3px solid #4b5563;
+            border-top-color: #e5e7eb;
             border-radius: 50%;
-            width: 25px;
-            height: 25px;
             animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- 鼠标交互层 --- */
+        #controls {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            border-radius: 35px;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .control-zone {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.2s ease-in-out;
+            border-radius: 35px;
+        }
+
+        #cancel-zone, #confirm-zone {
+            cursor: pointer;
+        }
+
+        .hover-icon {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+            color: white;
+            pointer-events: none;
+        }
+        
+        /* 悬浮时显示半透明背景和图标 */
+        #cancel-zone:hover {
+            background-color: rgba(239, 68, 68, 0.2);
+        }
+        #confirm-zone:hover {
+            background-color: rgba(34, 197, 94, 0.2);
+        }
+
+        #cancel-zone:hover .hover-icon,
+        #confirm-zone:hover .hover-icon {
+            opacity: 0.8;
+            transform: scale(1.1);
         }
     </style>
 </head>
 <body>
-    <div id="container">
+    <div class="container">
         <canvas id="audio-canvas"></canvas>
         <div class="analyzer">
             <div class="loader"></div>
+        </div>
+        
+        <div id="controls">
+            <div class="control-zone" id="cancel-zone" title="取消 (Esc)">
+                <div class="hover-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </div>
+            </div>
+            <div class="control-zone" id="middle-zone"></div>
+            <div class="control-zone" id="confirm-zone" title="确认 (Enter)">
+                <div class="hover-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+            </div>
         </div>
     </div>
 </body>

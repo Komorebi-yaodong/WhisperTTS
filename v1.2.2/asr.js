@@ -162,15 +162,22 @@ const drawWaveform = () => {
     animationFrameId = requestAnimationFrame(drawWaveform);
     analyser.getByteFrequencyData(dataArray);
     canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-    const barWidth = 4;
-    const gap = 2;
+
+    const barWidth = 2;
+    const gap = 1;
+
     const numBars = Math.floor(canvas.width / (barWidth + gap));
     const step = Math.floor(bufferLength / numBars);
+
     for (let i = 0; i < numBars; i++) {
         const dataIndex = i * step;
-        const barHeight = (dataArray[dataIndex] / 255) * canvas.height * 0.8;
+        
+        const normalizedHeight = dataArray[dataIndex] / 255;
+        const barHeight = Math.pow(normalizedHeight, 0.6) * canvas.height * 0.9;
+
         const x = i * (barWidth + gap);
         const y = canvas.height / 2 - barHeight / 2;
+        
         canvasCtx.beginPath();
         canvasCtx.moveTo(x + barWidth / 2, y);
         canvasCtx.lineTo(x + barWidth / 2, y + barHeight);
@@ -227,7 +234,7 @@ const startRecording = async () => {
         canvas = document.getElementById('audio-canvas');
         canvasCtx = canvas.getContext('2d');
         canvasCtx.strokeStyle = '#E5E7EB';
-        canvasCtx.lineWidth = 4;
+        canvasCtx.lineWidth = 2;
         canvasCtx.lineCap = 'round';
         mediaRecorder = new MediaRecorder(audioStream);
         mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunks.push(event.data); };
@@ -262,11 +269,10 @@ const startRecording = async () => {
                 const result = await response.json();
                 
                 if (result.text && result.text.trim()) {
-                    // [修改] 调用大模型优化文本，而不是直接复制
                     const optimizedText = await optimizeTextWithLLM(result.text);
                     console.log('[WhisperTTS] ASR result:', result.text);
                     utools.copyText(optimizedText);
-                    utools.showNotification('优化后的文本已复制');
+                    // utools.showNotification('优化后的文本已复制');
                 } else {
                     utools.showNotification('未能识别出任何文本。');
                 }
@@ -290,6 +296,23 @@ const startRecording = async () => {
             if (audioStream) audioStream.getTracks().forEach(track => track.stop());
             cancelAnimationFrame(animationFrameId);
         });
+
+        // --- 鼠标点击事件监听 ---
+        const cancelZone = document.getElementById('cancel-zone');
+        const confirmZone = document.getElementById('confirm-zone');
+
+        if (cancelZone) {
+            cancelZone.addEventListener('click', () => {
+                cancelRecording();
+            });
+        }
+
+        if (confirmZone) {
+            confirmZone.addEventListener('click', () => {
+                stopRecordingAndTranscribe();
+            });
+        }
+
     } catch (error) {
         console.error('[WhisperTTS] ASR start failed:', error);
         utools.showNotification('无法获取麦克风权限或录音失败。');

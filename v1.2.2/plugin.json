@@ -34,7 +34,7 @@
 		},
 		{
 			"code": "ASR",
-			"explain": "语音输入",
+			"explain": "语音输入，Enter/右侧按钮发送，ESC/左侧按钮取消",
 			"mainHide": true,
 			"cmds": [
 				"asr",
