@@ -249,14 +249,24 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
             utools.outPlugin();
         }
     } 
-    // [修改] ASR 逻辑现在是创建一个新窗口
     else if (code === 'ASR') {
         utools.hideMainWindow(true);
+
+        const windowWidth = 250;
+        const windowHeight = 70;
+
+        const { x: screenX, y: screenY, width: screenWidth, height: screenHeight } = utools.getPrimaryDisplay().workArea;
+
+        const targetX = Math.round(screenX + (screenWidth - windowWidth) / 2);
+        const targetY = Math.round(screenY + screenHeight * 0.90 - (windowHeight / 2));
+
         const asrWindow = utools.createBrowserWindow('asr.html', {
-            width: 250,
-            height: 70,
+            x: targetX,
+            y: targetY,
+            width: windowWidth,
+            height: windowHeight,
             show: true,
-            frame: false, // 保持无边框，若需调试窗口，可临时改为 true
+            frame: false,
             resizable: false,
             alwaysOnTop: true,
             skipTaskbar: true,
@@ -264,10 +274,9 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
             backgroundColor: 'rgba(255, 255, 255, 0)',
             webPreferences: {
                 preload: 'asr.js',
-                // devTools: true // 关键：允许在新窗口中使用开发者工具
             }
-        });
+        });        
         asrWindow.focus();
-        // asrWindow.webContents.openDevTools({ mode: 'detach' });
+        utools.outPlugin();
     }
 });

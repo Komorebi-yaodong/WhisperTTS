@@ -10,6 +10,7 @@ function getConfig() {
 let mediaRecorder, audioChunks = [], audioStream;
 let audioContext, analyser, animationFrameId;
 let canvas, canvasCtx, dataArray, bufferLength;
+let isCancelled = false; // [新增] 用于标记是否是用户取消操作
 
 // --- UI State Manager ---
 const updateStatus = (state) => {
@@ -27,7 +28,6 @@ const updateStatus = (state) => {
     }
 };
 
-// [关键修改] 重写波纹绘制函数
 const drawWaveform = () => {
     animationFrameId = requestAnimationFrame(drawWaveform);
     analyser.getByteFrequencyData(dataArray);
@@ -40,14 +40,11 @@ const drawWaveform = () => {
     const step = Math.floor(bufferLength / numBars);
 
     for (let i = 0; i < numBars; i++) {
-        // We take samples from the dataArray to draw fewer, thicker bars
         const dataIndex = i * step;
-        const barHeight = (dataArray[dataIndex] / 255) * canvas.height * 0.8; // Scale height
-
+        const barHeight = (dataArray[dataIndex] / 255) * canvas.height * 0.8; 
         const x = i * (barWidth + gap);
         const y = canvas.height / 2 - barHeight / 2;
         
-        // Draw the line with rounded caps to get the desired look
         canvasCtx.beginPath();
         canvasCtx.moveTo(x + barWidth / 2, y);
         canvasCtx.lineTo(x + barWidth / 2, y + barHeight);
@@ -58,16 +55,39 @@ const drawWaveform = () => {
 // --- Core Logic ---
 const stopRecordingAndTranscribe = () => {
     window.removeEventListener('keydown', keydownListener);
+    window.removeEventListener('keydown', escListener); // [新增] 移除ESC监听
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         updateStatus('processing');
         mediaRecorder.stop();
     }
 };
 
+// [新增] 取消录音并关闭窗口的函数
+const cancelRecording = () => {
+    isCancelled = true;
+    window.removeEventListener('keydown', keydownListener);
+    window.removeEventListener('keydown', escListener);
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    } else {
+        // 如果录音还没开始或者已经停止，直接关闭
+        window.close();
+    }
+};
+
+
 const keydownListener = (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
         stopRecordingAndTranscribe();
+    }
+};
+
+// [新增] ESC键的监听函数
+const escListener = (e) => {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelRecording();
     }
 };
 
@@ -80,23 +100,29 @@ const startRecording = async () => {
         const source = audioContext.createMediaStreamSource(audioStream);
         source.connect(analyser);
         
-        analyser.fftSize = 256; // More bars for smoother look
-        analyser.smoothingTimeConstant = 0.75; // Smooth out changes
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
         bufferLength = analyser.frequencyBinCount;
         dataArray = new Uint8Array(bufferLength);
         
         canvas = document.getElementById('audio-canvas');
         canvasCtx = canvas.getContext('2d');
-        // [修改] 设置线条样式
-        canvasCtx.strokeStyle = '#E5E7EB'; // Light gray for lines
+        canvasCtx.strokeStyle = '#E5E7EB';
         canvasCtx.lineWidth = 4;
-        canvasCtx.lineCap = 'round'; // The key to the rounded look
+        canvasCtx.lineCap = 'round';
 
         mediaRecorder = new MediaRecorder(audioStream);
         mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunks.push(event.data); };
 
         mediaRecorder.onstop = async () => {
-            // ... (The API call logic remains the same as the previous correct version)
+            // [修改] 检查是否是用户主动取消
+            if (isCancelled) {
+                if (audioContext && audioContext.state !== 'closed') audioContext.close();
+                if (audioStream) audioStream.getTracks().forEach(track => track.stop());
+                window.close();
+                return;
+            }
+
             if (audioChunks.length === 0) return window.close();
             const config = getConfig();
             const keysString = config.WhisperapiKey;
@@ -133,6 +159,7 @@ const startRecording = async () => {
 
         mediaRecorder.start();
         window.addEventListener('keydown', keydownListener);
+        window.addEventListener('keydown', escListener); // [新增] 添加ESC监听
         updateStatus('recording');
 
         utools.onPluginOut(() => {
