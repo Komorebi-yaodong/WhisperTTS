@@ -274,9 +274,11 @@ utools.onPluginEnter(async ({ code, type, payload }) => {
             backgroundColor: 'rgba(255, 255, 255, 0)',
             webPreferences: {
                 preload: 'asr.js',
+                devTools: true
             }
         });        
         asrWindow.focus();
+        asrWindow.webContents.openDevTools({ mode: "detach" });
         utools.outPlugin();
     }
 });
